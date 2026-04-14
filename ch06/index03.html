@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>오늘의 뉴스</title>
+  </head>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      background-color: antiquewhite;
+    }
+    header {
+      background-color: blueviolet;
+      color: white;
+      text-align: center;
+    }
+    nav a {
+      text-decoration: none;
+      font: 16px;
+      margin: 0 15px;
+      color: black;
+    }
+    main {
+      display: flex;
+      padding: 20px;
+      min-height: 400px;
+    }
+    section {
+      flex: 3;
+      padding: 20px;
+    }
+    aside {
+      flex: 1;
+      background-color: #fff;
+      border-radius: 8px;
+    }
+    footer {
+      background-color: yellowgreen;
+      text-align: center;
+      padding: 15px;
+    }
+  </style>
+  <body>
+    <!-- 페이지 상단 영역 -->
+    <header>
+      <h1>오늘의 뉴스</h1>
+      <p>매일 새로운 소식을 전합니다</p>
+    </header>
+    <!-- 네비게이션 메뉴 -->
+    <nav>
+      <a href="#">홈</a>
+      <a href="#">정치</a>
+      <a href="#">경제</a>
+    </nav>
+
+    <!-- main : 핵심 컨텐츠 영역 -->
+    <main>
+      <!-- 기사 목록 영역 -->
+      <section>
+        <h2>오늘의 주요 뉴스</h2>
+        <!-- 독립 적인 기사 하나 -->
+        <article>
+          <h3>HTML5 시멘틱태그의 중요성</h3>
+          <p>
+            Lorem ipsum dolor sit amet consectetur adipisicing elit. Aspernatur
+            sint nihil, cum magnam non ullam labore exercitationem ipsam sed ea
+            voluptatem dolore facere laborum id suscipit! Perspiciatis beatae
+            sed nobis.
+          </p>
+        </article>
+
+        <article>
+          <h3>카페 개장</h3>
+          <p>
+            Lorem ipsum dolor sit amet consectetur adipisicing elit. Aspernatur
+            sint nihil, cum magnam non ullam labore exercitationem ipsam sed ea
+            voluptatem dolore facere laborum id suscipit! Perspiciatis beatae
+            sed nobis.
+          </p>
+        </article>
+      </section>
+      <aside>
+        <h3>인기 검색어</h3>
+        <ol>
+          <li>HTML 시멘틱 태그</li>
+          <li>CSS 레이아웃</li>
+          <li>프론트엔드 로드맵</li>
+          <li>JS 기초 문법</li>
+        </ol>
+      </aside>
+    </main>
+    <!-- 페이지 하단 영역 -->
+    <footer>
+      <p>&copy; 2026 오늘의 뉴스</p>
+    </footer>
+  </body>
+</html>
