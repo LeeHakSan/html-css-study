@@ -1,0 +1,2075 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git 팀 프로젝트 시뮬레이터</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Pretendard:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+ :root {
+ --bg: #0d0f14;
+ --surface: #161920;
+ --surface2: #1e2230;
+ --border: #2a2f40;
+ --accent: #4ade80;
+ --accent2: #60a5fa;
+ --accent3: #f472b6;
+ --accent4: #facc15;
+ --danger: #ef4444;
+ --text: #e2e8f0;
+ --muted: #64748b;
+ --code-bg: #111318;
+ }
+ * { margin: 0; padding: 0; box-sizing: border-box; }
+ body {
+ font-family: 'Pretendard', sans-serif;
+ background: var(--bg);
+ color: var(--text);
+ line-height: 1.6;
+ min-height: 100vh;
+ }
+ header {
+ background: linear-gradient(135deg, rgba(74,222,128,0.08), rgba(96,165,250,0.08));
+ border-bottom: 1px solid var(--border);
+ padding: 28px 32px;
+ text-align: center;
+ }
+ header h1 {
+ font-size: 28px;
+ font-weight: 900;
+ letter-spacing: -0.02em;
+ }
+ header h1 .hl {
+ background: linear-gradient(135deg, var(--accent), var(--accent2));
+ -webkit-background-clip: text;
+ -webkit-text-fill-color: transparent;
+ }
+ header p { color: var(--muted); margin-top: 6px; font-size: 14px; }
+ .wrap {
+ max-width: 1400px;
+ margin: 0 auto;
+ padding: 20px;
+ display: grid;
+ grid-template-columns: 280px 1fr 360px;
+ gap: 16px;
+ height: calc(100vh - 100px);
+ }
+ .panel {
+ background: var(--surface);
+ border: 1px solid var(--border);
+ border-radius: 12px;
+ overflow: hidden;
+ display: flex;
+ flex-direction: column;
+ }
+ .panel-head {
+ background: var(--surface2);
+ padding: 12px 16px;
+ border-bottom: 1px solid var(--border);
+ font-family: 'JetBrains Mono', monospace;
+ font-size: 12px;
+ color: var(--muted);
+ text-transform: uppercase;
+ letter-spacing: 0.1em;
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ }
+ .panel-body {
+ padding: 14px 16px;
+ overflow-y: auto;
+ flex: 1;
+ }
+
+ /* Scenario list */
+ .scenario-item {
+ padding: 10px 12px;
+ border-radius: 8px;
+ margin-bottom: 6px;
+ cursor: pointer;
+ border: 1px solid transparent;
+ font-size: 13px;
+ transition: all 0.15s;
+ }
+ .scenario-item:hover { background: var(--surface2); }
+ .scenario-item.active {
+ background: rgba(74,222,128,0.08);
+ border-color: rgba(74,222,128,0.3);
+ }
+ .scenario-item .num {
+ font-family: 'JetBrains Mono', monospace;
+ font-size: 11px;
+ color: var(--accent);
+ margin-right: 8px;
+ }
+ .scenario-item.done .num::after {
+ content: ' [OK]';
+ color: var(--accent);
+ }
+ .scenario-item.done { opacity: 0.7; }
+
+ /* Mission box */
+ .mission {
+ background: var(--surface2);
+ border: 1px solid var(--border);
+ border-radius: 10px;
+ padding: 14px 16px;
+ margin-bottom: 14px;
+ }
+ .mission-title {
+ font-weight: 700;
+ font-size: 15px;
+ margin-bottom: 6px;
+ color: var(--accent4);
+ }
+ .mission-goal {
+ font-size: 13px;
+ color: #b0bac9;
+ margin-bottom: 10px;
+ }
+ .mission-hint {
+ font-size: 13.5px;
+ color: #e2e8f0;
+ font-family: 'JetBrains Mono', monospace;
+ background: #0b1220;
+ padding: 12px 14px;
+ border-radius: 8px;
+ border-left: 3px solid var(--accent2);
+ line-height: 1.8;
+ word-break: break-word;
+ }
+ .mission-hint b, .mission-hint strong { color: var(--accent4); }
+ .tip-box {
+ font-size: 13px !important;
+ color: #cbd5e1 !important;
+ line-height: 1.7;
+ }
+ .tip-box strong { color: var(--accent2); }
+
+ .cheat-box {
+ background: var(--code-bg);
+ border: 1px solid var(--border);
+ border-radius: 8px;
+ padding: 10px 12px;
+ margin-bottom: 6px;
+ }
+ .cheat-row {
+ display: flex;
+ align-items: center;
+ gap: 10px;
+ padding: 5px 0;
+ font-size: 12px;
+ border-bottom: 1px dashed rgba(42,47,64,0.6);
+ }
+ .cheat-row:last-of-type { border-bottom: none; }
+ .cheat-row code {
+ background: var(--surface2);
+ color: var(--accent4);
+ font-family: 'JetBrains Mono', monospace;
+ padding: 2px 7px;
+ border-radius: 4px;
+ font-size: 11.5px;
+ white-space: nowrap;
+ flex-shrink: 0;
+ min-width: 92px;
+ text-align: center;
+ }
+ .cheat-row span {
+ color: #cbd5e1;
+ font-size: 12px;
+ line-height: 1.5;
+ }
+ .cheat-ex {
+ margin-top: 8px;
+ padding-top: 8px;
+ border-top: 1px solid var(--border);
+ font-size: 11.5px;
+ color: var(--muted);
+ line-height: 1.6;
+ }
+ .cheat-ex code {
+ background: transparent;
+ color: var(--accent);
+ font-family: 'JetBrains Mono', monospace;
+ padding: 0;
+ font-size: 11.5px;
+ }
+
+ /* Graph */
+ #graph {
+ font-family: 'JetBrains Mono', monospace;
+ font-size: 13px;
+ line-height: 1.8;
+ white-space: pre;
+ color: #b0bac9;
+ }
+ .g-main { color: var(--accent2); }
+ .g-feature { color: var(--accent); }
+ .g-other { color: var(--accent3); }
+ .g-commit { color: var(--muted); }
+ .g-head { color: var(--accent4); font-weight: 700; }
+
+ /* Terminal */
+ .terminal {
+ background: var(--code-bg);
+ font-family: 'JetBrains Mono', monospace;
+ font-size: 13px;
+ flex: 1;
+ display: flex;
+ flex-direction: column;
+ }
+ #output {
+ flex: 1;
+ overflow-y: auto;
+ padding: 14px 16px;
+ white-space: pre-wrap;
+ line-height: 1.7;
+ }
+ .out-cmd { color: var(--text); }
+ .out-cmd::before { content: '$ '; color: var(--accent); }
+ .out-info { color: #94a3b8; }
+ .out-ok { color: var(--accent); }
+ .out-warn { color: var(--accent4); }
+ .out-err { color: var(--danger); }
+ .out-note { color: var(--accent2); font-style: italic; }
+ .out-conflict { color: var(--accent3); font-weight: 700; }
+
+ .input-row {
+ display: flex;
+ border-top: 1px solid var(--border);
+ background: var(--surface);
+ }
+ .input-prompt {
+ padding: 12px 10px 12px 16px;
+ color: var(--accent);
+ font-family: 'JetBrains Mono', monospace;
+ font-size: 13px;
+ user-select: none;
+ }
+ .input-prompt .branch { color: var(--accent3); }
+ #cmd {
+ flex: 1;
+ background: transparent;
+ border: none;
+ color: var(--text);
+ font-family: 'JetBrains Mono', monospace;
+ font-size: 13px;
+ padding: 12px 16px 12px 0;
+ outline: none;
+ }
+
+ /* Buttons */
+ .btn {
+ background: var(--surface2);
+ border: 1px solid var(--border);
+ color: var(--text);
+ padding: 6px 12px;
+ border-radius: 6px;
+ font-size: 12px;
+ cursor: pointer;
+ font-family: 'JetBrains Mono', monospace;
+ transition: all 0.15s;
+ }
+ .btn:hover { border-color: var(--accent); color: var(--accent); }
+ .btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+ /* Files */
+ .file-item {
+ cursor: pointer;
+ transition: all 0.15s;
+ padding: 8px 10px;
+ background: var(--code-bg);
+ border: 1px solid var(--border);
+ border-radius: 6px;
+ margin-bottom: 6px;
+ font-family: 'JetBrains Mono', monospace;
+ font-size: 12px;
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ }
+ .file-item:hover {
+ border-color: var(--accent);
+ transform: translateX(-2px);
+ }
+ .file-item .status {
+ font-size: 10px;
+ padding: 2px 6px;
+ border-radius: 10px;
+ }
+ .status.M { background: rgba(250,204,21,0.15); color: var(--accent4); }
+ .status.A { background: rgba(74,222,128,0.15); color: var(--accent); }
+ .status.U { background: rgba(244,114,182,0.15); color: var(--accent3); }
+ .status.D { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+ .tip-box {
+ background: rgba(96,165,250,0.06);
+ border: 1px solid rgba(96,165,250,0.2);
+ border-radius: 8px;
+ padding: 10px 12px;
+ margin-top: 10px;
+ font-size: 12px;
+ color: #b0bac9;
+ }
+ .tip-box strong { color: var(--accent2); display: block; margin-bottom: 4px; }
+
+ .section-title {
+ font-size: 11px;
+ text-transform: uppercase;
+ letter-spacing: 0.1em;
+ color: var(--muted);
+ margin: 14px 0 8px;
+ font-family: 'JetBrains Mono', monospace;
+ }
+
+ /* Header buttons */
+ .hdr-btn {
+ background: rgba(74,222,128,0.1);
+ border: 1px solid rgba(74,222,128,0.3);
+ color: var(--accent);
+ padding: 8px 16px;
+ border-radius: 20px;
+ font-size: 13px;
+ font-weight: 600;
+ cursor: pointer;
+ font-family: 'Pretendard', sans-serif;
+ transition: all 0.15s;
+ }
+ .hdr-btn:hover { background: rgba(74,222,128,0.2); transform: translateY(-1px); }
+
+ /* Learn Modal */
+ .learn-modal {
+ display: none;
+ position: fixed;
+ inset: 0;
+ background: rgba(0,0,0,0.7);
+ backdrop-filter: blur(6px);
+ z-index: 1000;
+ align-items: center;
+ justify-content: center;
+ padding: 20px;
+ }
+ .learn-modal.open { display: flex; }
+ .learn-box {
+ background: var(--surface);
+ border: 1px solid var(--border);
+ border-radius: 14px;
+ width: 100%;
+ max-width: 1000px;
+ max-height: 90vh;
+ display: flex;
+ flex-direction: column;
+ overflow: hidden;
+ }
+ .learn-head {
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ background: var(--surface2);
+ padding: 10px 16px;
+ border-bottom: 1px solid var(--border);
+ }
+ .learn-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+ .ltab {
+ background: transparent;
+ border: 1px solid transparent;
+ color: var(--muted);
+ padding: 8px 14px;
+ border-radius: 8px;
+ font-size: 13px;
+ cursor: pointer;
+ font-family: 'Pretendard', sans-serif;
+ font-weight: 600;
+ }
+ .ltab:hover { color: var(--text); }
+ .ltab.active {
+ background: var(--bg);
+ color: var(--accent);
+ border-color: var(--border);
+ }
+ .lclose {
+ background: transparent;
+ border: none;
+ color: var(--muted);
+ font-size: 22px;
+ cursor: pointer;
+ padding: 4px 10px;
+ }
+ .lclose:hover { color: var(--danger); }
+ .learn-body {
+ padding: 28px 32px;
+ overflow-y: auto;
+ line-height: 1.75;
+ color: #cbd5e1;
+ font-size: 15px;
+ }
+ .learn-body h2 {
+ font-size: 22px;
+ color: var(--text);
+ margin-bottom: 16px;
+ padding-bottom: 10px;
+ border-bottom: 1px solid var(--border);
+ }
+ .learn-body h3 {
+ font-size: 17px;
+ color: var(--accent);
+ margin: 22px 0 10px;
+ }
+ .learn-body h4 { color: var(--accent2); margin: 16px 0 8px; font-size: 15px; }
+ .learn-body p { margin-bottom: 12px; }
+ .learn-body ul, .learn-body ol { margin: 10px 0 14px 22px; }
+ .learn-body li { margin-bottom: 6px; }
+ .learn-body strong { color: var(--text); }
+ .learn-body code {
+ background: var(--code-bg);
+ color: var(--accent4);
+ padding: 2px 6px;
+ border-radius: 4px;
+ font-family: 'JetBrains Mono', monospace;
+ font-size: 13px;
+ }
+ .learn-body pre {
+ background: var(--code-bg);
+ border: 1px solid var(--border);
+ border-radius: 8px;
+ padding: 14px 18px;
+ margin: 12px 0;
+ overflow-x: auto;
+ font-family: 'JetBrains Mono', monospace;
+ font-size: 13px;
+ color: #e2e8f0;
+ line-height: 1.7;
+ }
+ .learn-body pre .cmt { color: var(--muted); }
+ .learn-body pre .kw { color: var(--accent2); }
+ .learn-body pre .str { color: var(--accent4); }
+ .tool-tabs { display: flex; gap: 6px; margin: 16px 0 0; border-bottom: 1px solid var(--border); }
+ .tool-tab {
+ background: transparent;
+ border: none;
+ color: var(--muted);
+ padding: 10px 16px;
+ cursor: pointer;
+ font-size: 13px;
+ font-weight: 600;
+ border-bottom: 2px solid transparent;
+ font-family: 'Pretendard', sans-serif;
+ }
+ .tool-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+ .tool-panel { display: none; padding-top: 14px; }
+ .tool-panel.active { display: block; }
+ .box-info, .box-warn, .box-tip {
+ border-radius: 8px;
+ padding: 12px 16px;
+ margin: 14px 0;
+ border: 1px solid;
+ }
+ .box-info { background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.3); }
+ .box-warn { background: rgba(250,204,21,0.08); border-color: rgba(250,204,21,0.3); }
+ .box-tip { background: rgba(74,222,128,0.08); border-color: rgba(74,222,128,0.3); }
+ .box-info strong { color: var(--accent2); }
+ .box-warn strong { color: var(--accent4); }
+ .box-tip strong { color: var(--accent); }
+
+ @media (max-width: 1100px) {
+ .wrap { grid-template-columns: 1fr; height: auto; }
+ .panel { min-height: 300px; }
+ }
+</style>
+</head>
+<body>
+
+<header>
+ <h1>Git 팀 프로젝트 <span class="hl">실전 시뮬레이터</span></h1>
+ <p>브랜치 · PR · 충돌 · 실수 복구까지 — 실제 협업에서 벌어지는 상황을 체험으로 배워봅시다</p>
+ <div style="margin-top:16px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+ <button class="hdr-btn" onclick="openLearn('pr')">PR 개념 학습</button>
+ <button class="hdr-btn" onclick="openLearn('conflict')">충돌 해결 가이드</button>
+ <button class="hdr-btn" onclick="openLearn('workflow')">팀 워크플로우</button>
+ </div>
+</header>
+
+<!-- LEARN MODAL -->
+<div id="learnModal" class="learn-modal" onclick="if(event.target===this)closeLearn()">
+ <div class="learn-box">
+ <div class="learn-head">
+ <div class="learn-tabs">
+ <button class="ltab" data-tab="pr" onclick="switchLearn('pr')">PR 개념</button>
+ <button class="ltab" data-tab="conflict" onclick="switchLearn('conflict')">충돌 해결</button>
+ <button class="ltab" data-tab="workflow" onclick="switchLearn('workflow')">워크플로우</button>
+ </div>
+ <button class="lclose" onclick="closeLearn()">X</button>
+ </div>
+ <div class="learn-body" id="learnBody"></div>
+ </div>
+</div>
+
+<div class="wrap">
+ <!-- LEFT: Scenarios -->
+ <div class="panel">
+ <div class="panel-head">시나리오</div>
+ <div class="panel-body" id="scenarioList"></div>
+ </div>
+
+ <!-- CENTER: Mission + Terminal -->
+ <div class="panel">
+ <div class="panel-head">
+ <span id="missionTitle">미션</span>
+ <div>
+ <button class="btn" onclick="resetScenario()">초기화</button>
+ <button class="btn" onclick="showHelp()">도움말</button>
+ </div>
+ </div>
+ <div class="panel-body" style="padding: 0; display: flex; flex-direction: column;">
+ <div style="padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--surface2);">
+ <div id="missionBox"></div>
+ </div>
+ <div class="terminal">
+ <div id="output"></div>
+ <div class="input-row">
+ <span class="input-prompt">team@git <span class="branch" id="promptBranch">(main)</span> $</span>
+ <input id="cmd" autocomplete="off" spellcheck="false" placeholder="git 명령어를 입력하세요. 예) git status"/>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- RIGHT: Repo state -->
+ <div class="panel">
+ <div class="panel-head">저장소 상태</div>
+ <div class="panel-body">
+ <div class="section-title">Branch Graph</div>
+ <div id="graph"></div>
+
+ <div class="section-title">Working Directory</div>
+ <div id="workingDir"></div>
+
+ <div class="section-title">Staging Area</div>
+ <div id="stagingArea"></div>
+
+ <div class="section-title">쉘 명령어 치트시트</div>
+ <div class="cheat-box">
+ <div class="cheat-row">
+ <code>echo "내용"</code>
+ <span>문자열을 출력</span>
+ </div>
+ <div class="cheat-row">
+ <code>cat 파일</code>
+ <span>파일 내용을 터미널에 표시</span>
+ </div>
+ <div class="cheat-row">
+ <code>&gt;</code>
+ <span>출력을 파일로 보냄 (덮어쓰기)</span>
+ </div>
+ <div class="cheat-row">
+ <code>&gt;&gt;</code>
+ <span>출력을 파일 끝에 추가</span>
+ </div>
+ <div class="cheat-ex">
+ 예: <code>echo "hi" &gt; a.txt</code> → a.txt에 "hi" 기록
+ </div>
+ </div>
+
+ <div class="section-title">실전 팁</div>
+ <div id="tipArea"></div>
+ </div>
+ </div>
+</div>
+
+<script>
+/* ============================================================
+ GIT TEAM SIMULATOR ENGINE
+ 실제 Git 동작을 단순화한 모델. 팀 협업 시나리오에 집중.
+============================================================ */
+
+// ---------- Scenarios ----------
+const SCENARIOS = [
+ {
+ id: 1,
+ title: "브랜치 만들고 첫 커밋",
+ goal: "main 브랜치에서 feature/login 브랜치를 만들고, login.js 파일을 생성해 커밋한 뒤 origin에 push 하세요.",
+ hint: "git switch -c feature/login (새 브랜치 생성+이동) → echo 내용 > login.js (파일 생성) → git add login.js (staging에 올림) → git commit -m \"...\" (커밋 기록) → git push -u origin feature/login (-u는 원격 추적 연결)",
+ tip: "팀에서는 main/master에 직접 커밋하지 않습니다. 항상 기능별 브랜치를 파는 것이 기본!",
+ setup: (s) => {
+ s.remote.branches.main = [{id:'a1', msg:'initial commit', files:{'README.md':'# Project'}}];
+ s.local.branches.main = [{id:'a1', msg:'initial commit', files:{'README.md':'# Project'}}];
+ s.local.current = 'main';
+ s.wd = {'README.md':'# Project'};
+ },
+ check: (s) => {
+ const hasBranch = s.local.branches['feature/login'];
+ const hasRemote = s.remote.branches['feature/login'];
+ const hasFile = hasBranch && hasBranch.some(c => c.files['login.js']);
+ return hasBranch && hasRemote && hasFile;
+ }
+ },
+ {
+ id: 2,
+ title: "실수: main에 직접 커밋해버림",
+ goal: "main에 잘못 커밋한 작업을 feature/profile 브랜치로 옮기고, main은 원래 상태로 되돌리세요.",
+ hint: "git log (커밋 ID 확인) → git branch feature/profile (현재 커밋에 북마크만 생성, 이동X) → git reset --hard HEAD~1 (main을 직전 커밋으로 되돌리기, 작업파일도 같이 원복) → git switch feature/profile (아까 만든 북마크로 이동)",
+ tip: "이미 push 하지 않았다면 reset --hard HEAD~1 으로 되돌릴 수 있습니다. push 했다면? 절대 force push 금지 (뒤에서 배움)",
+ setup: (s) => {
+ s.remote.branches.main = [{id:'a1', msg:'initial', files:{'README.md':'# Project'}}];
+ s.local.branches.main = [
+ {id:'a1', msg:'initial', files:{'README.md':'# Project'}},
+ {id:'b2', msg:'add profile page (실수로 main에 커밋)', files:{'README.md':'# Project','profile.js':'profile code'}}
+ ];
+ s.local.current = 'main';
+ s.wd = {'README.md':'# Project','profile.js':'profile code'};
+ },
+ check: (s) => {
+ const mainOk = s.local.branches.main.length === 1;
+ const fp = s.local.branches['feature/profile'];
+ const fpOk = fp && fp.some(c => c.files['profile.js']);
+ return mainOk && fpOk;
+ }
+ },
+ {
+ id: 3,
+ title: "병합 충돌(Merge Conflict) 해결",
+ goal: "팀원이 main의 같은 파일을 수정해서 push 했습니다. 내 feature/header 브랜치에 main을 merge하면 충돌이 납니다. 충돌을 해결하고 커밋을 완료하세요.",
+ hint: "git switch feature/header (내 브랜치로 이동) → git fetch origin (원격 최신정보만 받기, 병합X) → git merge origin/main (원격 main을 내 브랜치에 병합 시도) → 충돌 발생! → echo로 header.js 수정 (마커 정리) → git add header.js (해결 표시) → git commit (병합 커밋 완료)",
+ tip: "<<<<<<< HEAD 위는 내 변경, ======= 아래는 상대방 변경. 둘 다 보고 합의된 코드로 고쳐야 합니다. 임의로 한쪽만 지우면 팀원의 작업이 사라집니다.",
+ setup: (s) => {
+ s.remote.branches.main = [
+ {id:'a1', msg:'initial', files:{'header.js':'old header'}},
+ {id:'c3', msg:'teammate: update header color', files:{'header.js':'header with blue color'}}
+ ];
+ s.local.branches.main = [{id:'a1', msg:'initial', files:{'header.js':'old header'}}];
+ s.local.branches['feature/header'] = [
+ {id:'a1', msg:'initial', files:{'header.js':'old header'}},
+ {id:'b2', msg:'add logo to header', files:{'header.js':'header with logo'}}
+ ];
+ s.remote.branches['feature/header'] = [...s.local.branches['feature/header']];
+ s.local.current = 'feature/header';
+ s.wd = {'header.js':'header with logo'};
+ },
+ check: (s) => {
+ if (s.conflictPending) return false;
+ const b = s.local.branches['feature/header'];
+ const last = b[b.length-1];
+ return last.msg.toLowerCase().includes('merge') && !s.conflictPending;
+ }
+ },
+ {
+ id: 4,
+ title: "pull 전에 push → rejected 에러",
+ goal: "팀원이 origin/main에 먼저 push했습니다. 내가 push를 시도하면 거절됩니다. 올바른 순서로 해결하세요.",
+ hint: "git push (먼저 시도 → rejected 확인) → git pull origin main (원격 main을 받아와서 자동 병합 = fetch + merge 한번에) → git push (이제 성공)",
+ tip: "'! [rejected] non-fast-forward' 에러를 만나면 당황하지 말고 pull 부터! 절대 git push --force 로 덮어쓰면 안됩니다 — 팀원의 커밋이 사라져요.",
+ setup: (s) => {
+ s.remote.branches.main = [
+ {id:'a1', msg:'initial', files:{'README.md':'# Project'}},
+ {id:'c3', msg:'teammate: add deploy script', files:{'README.md':'# Project','deploy.sh':'deploy'}}
+ ];
+ s.local.branches.main = [
+ {id:'a1', msg:'initial', files:{'README.md':'# Project'}},
+ {id:'b2', msg:'update readme', files:{'README.md':'# Project (updated)'}}
+ ];
+ s.local.current = 'main';
+ s.wd = {'README.md':'# Project (updated)'};
+ },
+ check: (s) => {
+ const remote = s.remote.branches.main;
+ const local = s.local.branches.main;
+ if (remote.length !== local.length) return false;
+ return remote[remote.length-1].id === local[local.length-1].id
+ && local.some(c => c.msg.includes('deploy'))
+ && local.some(c => c.msg.includes('readme'));
+ }
+ },
+ {
+ id: 5,
+ title: "작업 중인데 급하게 브랜치 이동 (stash)",
+ goal: "hotfix를 해야 하는데 작업 중인 파일이 있어 브랜치 이동이 막힙니다. stash로 임시저장 → main으로 이동 → 돌아와서 복원.",
+ hint: "git stash (작업 중인 변경사항을 임시 서랍에 넣기, 워킹디렉토리 깨끗해짐) → git switch main (이제 이동 가능) → (일 끝내고) git switch feature/cart (원래 브랜치로 복귀) → git stash pop (서랍에서 꺼내 워킹디렉토리에 복원)",
+ tip: "stash는 '작업 서랍'이에요. 커밋하기 애매한 중간 작업을 임시로 넣어두는 용도. 잊어버리면 서랍 속에서 영영 잠들 수 있으니 git stash list 로 확인하세요.",
+ setup: (s) => {
+ s.local.branches.main = [{id:'a1', msg:'initial', files:{'README.md':'# Project'}}];
+ s.remote.branches.main = [...s.local.branches.main];
+ s.local.branches['feature/cart'] = [{id:'a1', msg:'initial', files:{'README.md':'# Project'}}];
+ s.local.current = 'feature/cart';
+ s.wd = {'README.md':'# Project','cart.js':'WIP: adding cart logic...'};
+ s.missionState = {stashed: false, visitedMain: false};
+ },
+ check: (s) => {
+ return s.missionState && s.missionState.stashed && s.missionState.visitedMain
+ && s.local.current === 'feature/cart'
+ && s.wd['cart.js'];
+ }
+ },
+ {
+ id: 6,
+ title: "커밋 되돌리기: reset vs revert",
+ goal: "이미 origin에 push된 커밋에서 버그가 발견됐습니다. 팀이 공유하는 브랜치이므로 reset이 아닌 revert로 되돌리세요.",
+ hint: "git log (되돌릴 커밋 ID 확인) → git revert &lt;commit-id&gt; (해당 커밋을 취소하는 '새 커밋'을 추가. 기존 히스토리는 그대로 보존) → git push (원격에 반영)",
+ tip: `<div style='line-height:1.7'>
+  <div style='margin-bottom:10px; padding:8px; background:rgba(255,90,90,0.12); border-left:3px solid #ff5a5a; border-radius:4px;'>
+    <b style='color:#ff5a5a;'>[X] git reset — 역사를 지움 (위험)</b><br>
+    • 커밋 자체를 <b>히스토리에서 삭제</b> (없었던 일로 만듦)<br>
+    • 예: <code>A─B─C</code> 에서 <code>reset --hard HEAD~1</code> → <code>A─B</code> (C 증발)<br>
+    • 이미 push된 커밋에 쓰면 → <b>push 거절 → force push 필요 → 팀원 커밋 파괴</b><br>
+    • <b>사용 시점: 아직 push 안 한 내 로컬 커밋만</b>
+  </div>
+  <div style='margin-bottom:10px; padding:8px; background:rgba(90,255,150,0.12); border-left:3px solid #5ae08a; border-radius:4px;'>
+    <b style='color:#5ae08a;'>[O] git revert — 취소 커밋을 추가 (안전)</b><br>
+    • 원래 커밋은 <b>그대로 두고, 그걸 되돌리는 새 커밋을 추가</b><br>
+    • 예: <code>A─B─C(버그)</code> → <code>revert C</code> → <code>A─B─C─C'</code> (C' = C 취소 커밋)<br>
+    • 일반 push로 깔끔하게 반영, 팀원은 그냥 pull만 하면 됨<br>
+    • <b>"언제 왜 되돌렸나"가 히스토리에 기록되어 audit 가능</b><br>
+    • <b>사용 시점: 이미 push된 커밋, 공유 브랜치(main/develop 등)</b>
+  </div>
+  <div style='padding:6px 8px; background:rgba(255,200,90,0.1); border-radius:4px;'>
+    <b>[규칙]</b> push 안 했으면 reset OK / push 했으면 <b>무조건 revert</b>
+  </div>
+</div>`,
+ setup: (s) => {
+ s.local.branches.main = [
+ {id:'a1', msg:'initial', files:{'app.js':'app'}},
+ {id:'b2', msg:'add feature X', files:{'app.js':'app','feature-x.js':'buggy code'}}
+ ];
+ s.remote.branches.main = [...s.local.branches.main];
+ s.local.current = 'main';
+ s.wd = {'app.js':'app','feature-x.js':'buggy code'};
+ },
+ check: (s) => {
+ const b = s.local.branches.main;
+ const r = s.remote.branches.main;
+ return b.length >= 3 && b[b.length-1].msg.toLowerCase().includes('revert')
+ && r.length === b.length;
+ }
+ },
+ {
+ id: 7,
+ title: "PR 워크플로우: 리뷰 → 수정 → 머지",
+ goal: "feature/search 브랜치를 push하고 PR을 열어 리뷰를 받은 뒤, 코드 수정을 추가 커밋하고 PR을 머지하세요.",
+ hint: `git push -u origin feature/search (원격에 브랜치 올리기) → <b style='color:#ffb86c'>pr open</b> (※ 실제로는 GitHub 웹사이트에서 'Create pull request' 버튼 클릭 / 또는 <code>gh pr create</code>) → (리뷰어 피드백 대기) → echo로 파일 수정 → git add → git commit -m "fix: 리뷰 반영" → git push (PR에 자동 반영) → <b style='color:#ffb86c'>pr merge</b> (※ 실제로는 GitHub 웹에서 'Merge pull request' 버튼 클릭 / 또는 <code>gh pr merge</code>)`,
+ tip: `<div style='line-height:1.7'>
+  <div style='margin-bottom:10px; padding:8px; background:rgba(255,184,108,0.15); border-left:3px solid #ffb86c; border-radius:4px;'>
+    <b style='color:#ffb86c;'>[주의] pr open / pr merge 는 시뮬레이터 전용 가짜 명령어</b><br>
+    PR(Pull Request)은 Git 자체 기능이 아니라 <b>GitHub/GitLab 웹사이트의 기능</b>입니다.<br>
+    실제로는 터미널에 <code>pr open</code>을 쳐도 동작하지 않아요.
+  </div>
+  <div style='margin-bottom:10px; padding:8px; background:rgba(120,170,255,0.12); border-radius:4px;'>
+    <b>실제 워크플로우</b><br>
+    • 코드 작업·커밋·push → <b>터미널/IDE</b><br>
+    • PR 생성·리뷰·머지 → <b>GitHub 웹사이트</b> (Create/Merge pull request 버튼)<br>
+    • 터미널만 쓰고 싶다면 → <b><code>gh</code> CLI</b> 설치 후 <code>gh pr create</code> / <code>gh pr merge</code>
+  </div>
+  <div style='padding:6px 8px; background:rgba(90,224,138,0.1); border-radius:4px;'>
+    <b>[핵심]</b> PR에 올린 뒤 추가 커밋·push 하면 자동으로 PR에 반영됩니다.<br>
+    리뷰 코멘트를 반영하지 않고 머지하면 팀 신뢰가 깨져요 — 반드시 review → 수정 → push → merge 순서!
+  </div>
+</div>`,
+ setup: (s) => {
+ s.local.branches.main = [{id:'a1', msg:'initial', files:{'README.md':'# Project'}}];
+ s.remote.branches.main = [...s.local.branches.main];
+ s.local.branches['feature/search'] = [
+ {id:'a1', msg:'initial', files:{'README.md':'# Project'}},
+ {id:'b2', msg:'add search bar', files:{'README.md':'# Project','search.js':'search v1'}}
+ ];
+ s.local.current = 'feature/search';
+ s.wd = {'README.md':'# Project','search.js':'search v1'};
+ s.missionState = {prOpened: false, reviewed: false, updated: false};
+ },
+ check: (s) => {
+ return s.missionState && s.missionState.prOpened && s.missionState.updated
+ && s.remote.branches.main.some(c => c.msg.toLowerCase().includes('merge') || c.msg.includes('search'));
+ }
+ },
+ {
+ id: 8,
+ title: "잘못 지운 브랜치 복구 (reflog)",
+ goal: "실수로 병합 전의 feature/payment 브랜치를 지워버렸습니다. reflog를 이용해 복구하세요.",
+ hint: "git reflog (HEAD가 움직인 모든 기록 보기 - 지운 커밋도 여기 남아있음) → 복구하고 싶은 커밋 ID 확인 → git branch feature/payment <commit-id> (그 커밋에 새 브랜치 포인터 만들어서 되살리기)",
+ tip: "Git은 웬만해선 데이터를 즉시 삭제하지 않습니다. reflog는 HEAD가 움직인 모든 기록 — '시간 여행 티켓'이에요. 90일간 보관됩니다.",
+ setup: (s) => {
+ s.local.branches.main = [{id:'a1', msg:'initial', files:{'app.js':'app'}}];
+ s.remote.branches.main = [...s.local.branches.main];
+ s.local.current = 'main';
+ s.wd = {'app.js':'app'};
+ // simulate the deletion already happened
+ s.reflog = [
+ {id:'a1', action:'checkout: moving to main'},
+ {id:'b2', action:'commit: add payment API'},
+ {id:'c3', action:'commit: add payment UI'},
+ {id:'a1', action:'checkout: moving to main'},
+ {id:'a1', action:'branch: deleted feature/payment (c3)'}
+ ];
+ s.orphanCommits = {
+ 'b2': {id:'b2', msg:'add payment API', files:{'app.js':'app','pay-api.js':'api'}, parent:'a1'},
+ 'c3': {id:'c3', msg:'add payment UI', files:{'app.js':'app','pay-api.js':'api','pay-ui.js':'ui'}, parent:'b2'}
+ };
+ },
+ check: (s) => {
+ const p = s.local.branches['feature/payment'];
+ return p && p.some(c => c.id === 'c3');
+ }
+ },
+ {
+ id: 9,
+ title: ".gitignore — 올리면 안 되는 파일",
+ goal: "비밀키가 담긴 .env 파일과 용량 큰 node_modules 폴더가 실수로 staging에 올라가 있습니다. 지금 commit/push하면 비밀키가 공개 저장소에 노출됩니다. .gitignore로 앞으로 추적 안 하도록 설정하고, 이미 staging된 두 항목을 빼내세요.",
+ hint: `<div style='line-height:1.8'>
+  <div style='margin-bottom:8px;'><b>[1단계]</b> <code>echo ".env node_modules/" > .gitignore</code> <span style='color:#8ab4ff'>— 무시할 파일 목록을 담은 설정파일 생성</span></div>
+  <div style='margin-bottom:8px;'><b>[2단계]</b> <code>git rm --cached .env</code> <span style='color:#8ab4ff'>— staging에서만 빼냄 (내 컴퓨터의 .env 파일은 그대로 유지, 안심!)</span></div>
+  <div style='margin-bottom:8px;'><b>[3단계]</b> <code>git rm -r --cached node_modules</code> <span style='color:#8ab4ff'>— 폴더라서 <b>-r</b>(재귀) 필요, <b>--cached</b>는 "staging에서만"이란 뜻</span></div>
+  <div style='margin-bottom:8px;'><b>[4단계]</b> <code>git add .gitignore</code> <span style='color:#8ab4ff'>— 새로 만든 규칙 파일을 staging에 올림</span></div>
+  <div><b>[5단계]</b> <code>git commit -m "add gitignore"</code> <span style='color:#8ab4ff'>— 규칙 파일을 커밋해서 팀원과 공유</span></div>
+</div>`,
+ tip: `<div style='line-height:1.7'>
+  <div style='margin-bottom:10px; padding:8px; background:rgba(120,170,255,0.12); border-left:3px solid #8ab4ff; border-radius:4px;'>
+    <b>.gitignore 가 뭐야?</b><br>
+    Git에게 <b>"이 파일/폴더는 절대 추적하지 마"</b> 라고 알려주는 설정 파일.<br>
+    프로젝트 루트에 만들면 Git이 자동으로 읽어서, 여기 적힌 패턴에 맞는 파일은 <code>git status</code>에 안 뜨고 <code>git add .</code>을 해도 무시됩니다.
+  </div>
+  <div style='margin-bottom:10px; padding:8px; background:rgba(255,200,90,0.1); border-left:3px solid #ffc85a; border-radius:4px;'>
+    <b>왜 .env, node_modules 는 올리면 안 될까?</b><br>
+    • <b>.env</b> — API 키, DB 비밀번호 같은 <b>비밀정보</b>가 들어있음. 공개 저장소에 올라가면 즉시 해킹당함<br>
+    • <b>node_modules/</b> — npm 패키지 수십만 파일. 용량 GB 단위. <code>package.json</code>만 있으면 <code>npm install</code>로 언제든 복구 가능
+  </div>
+  <div style='margin-bottom:10px; padding:8px; background:rgba(255,90,90,0.12); border-left:3px solid #ff5a5a; border-radius:4px;'>
+    <b>왜 "rm --cached" 인가? 그냥 rm 쓰면 안 돼?</b><br>
+    • <code>git rm 파일</code> → <b>staging + 내 컴퓨터 파일도 삭제</b> ([X] .env 파일 잃어버림!)<br>
+    • <code>git rm --cached 파일</code> → <b>staging(Git 추적)에서만 빼고, 내 컴퓨터 파일은 그대로</b> ([O] 안전)<br>
+    즉, "Git아, 이 파일은 이제 안 볼게. 근데 파일 자체는 지우지 마." 라는 뜻.
+  </div>
+  <div style='padding:8px; background:rgba(255,90,90,0.12); border-left:3px solid #ff5a5a; border-radius:4px;'>
+    <b>[매우 중요]</b> 이미 커밋+push된 비밀키(.env, API 키)는 나중에 .gitignore를 추가해도 <b>히스토리에 영원히 남음</b>.<br>
+    즉시 해당 키를 <b>재발급·폐기</b>하고, 앞으로는 처음부터 .gitignore에 넣어두세요.
+  </div>
+</div>`,
+ setup: (s) => {
+ s.local.branches.main = [{id:'a1', msg:'initial', files:{'app.js':'app'}}];
+ s.remote.branches.main = [...s.local.branches.main];
+ s.local.current = 'main';
+ s.wd = {'app.js':'app','.env':'SECRET=12345','node_modules/lib.js':'huge lib'};
+ s.staging = {'.env':'SECRET=12345','node_modules/lib.js':'huge lib'};
+ },
+ check: (s) => {
+ return s.wd['.gitignore'] && !s.staging['.env'] && !s.staging['node_modules/lib.js']
+ && s.local.branches.main.some(c => c.files['.gitignore']);
+ }
+ },
+ {
+ id: 10,
+ title: "GitHub PR 충돌: \"This branch has conflicts\"",
+ goal: "내가 feature/profile 브랜치에서 user.js에 'name' 필드를 추가해 PR을 올렸는데, 리뷰 기다리는 사이 팀원이 같은 user.js에 'email' 필드를 추가해 main에 먼저 머지해버렸습니다. 이제 GitHub PR 페이지에 빨간 경고: 'This branch has conflicts that must be resolved'. 로컬에서 최신 main을 내 브랜치로 가져와 충돌을 합치고, push해서 PR을 완료하세요.",
+ hint: `<div style='line-height:1.8'>
+  <div style='margin-bottom:6px;'><b>[1]</b> <code>git switch feature/profile</code> <span style='color:#8ab4ff'>— 내 PR 브랜치로 이동 (이미 여기 있으면 생략 가능)</span></div>
+  <div style='margin-bottom:6px;'><b>[2]</b> <code>git fetch origin</code> <span style='color:#8ab4ff'>— 원격 저장소의 최신 정보를 내려받기만 (아직 병합 X, 그냥 "뭐가 바뀌었나" 확인)</span></div>
+  <div style='margin-bottom:6px;'><b>[3]</b> <code>git merge origin/main</code> <span style='color:#8ab4ff'>— 팀원이 반영한 최신 main을 내 브랜치 위에 얹기 시도 → <b>user.js에서 충돌 발생</b></span></div>
+  <div style='margin-bottom:6px;'><b>[4]</b> 오른쪽 패널에서 <code>user.js</code> 클릭 또는 <code>cat user.js</code> <span style='color:#8ab4ff'>— 충돌 마커 <b>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</b>, <b>=======</b>, <b>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</b> 확인</span></div>
+  <div style='margin-bottom:6px;'><b>[5]</b> <code>echo "function getUser() { return { name: '', email: '' }; }" &gt; user.js</code> <span style='color:#8ab4ff'>— 양쪽 필드(name+email)를 <b>모두 포함한 최종본</b>으로 덮어쓰기 (마커 다 삭제)</span></div>
+  <div style='margin-bottom:6px;'><b>[6]</b> <code>git add user.js</code> <span style='color:#8ab4ff'>— Git에게 "충돌 해결했어" 표시</span></div>
+  <div style='margin-bottom:6px;'><b>[7]</b> <code>git commit -m "Merge origin/main"</code> <span style='color:#8ab4ff'>— 병합 커밋 완료 (이게 두 흐름을 하나로 합치는 매듭)</span></div>
+  <div style='margin-bottom:6px;'><b>[8]</b> <code>git push</code> <span style='color:#8ab4ff'>— GitHub PR이 자동으로 갱신되어 'Ready to merge'로 상태 변경</span></div>
+  <div><b>[9]</b> <code>pr merge</code> <span style='color:#8ab4ff'>— (실제로는 GitHub 웹의 'Merge pull request' 버튼 클릭) main에 최종 반영</span></div>
+</div>`,
+ tip: `<div style='line-height:1.7'>
+  <div style='margin-bottom:10px; padding:8px; background:rgba(120,170,255,0.12); border-left:3px solid #8ab4ff; border-radius:4px;'>
+    <b>왜 이런 일이 생겨?</b><br>
+    내가 PR 올린 시점의 main과 <b>머지 직전의 main이 달라졌기</b> 때문. 리뷰가 늦어지는 동안 팀원이 같은 파일을 수정해서 먼저 main에 들어가버리면, 내 브랜치는 "옛 main" 위에서 작업한 상태 → GitHub가 자동 합치기를 포기하고 "직접 해결해" 경고.
+  </div>
+  <div style='margin-bottom:10px; padding:8px; background:rgba(255,200,90,0.12); border-left:3px solid #ffc85a; border-radius:4px;'>
+    <b>해결 방법 두 가지</b><br>
+    <b>① GitHub 웹 에디터</b> ('Resolve conflicts' 버튼) — <b>한두 줄 짜리 아주 단순한 충돌</b>에만 추천. 브라우저 안에서 직접 마커 지우고 커밋.<br>
+    <b>② 로컬에서 해결 (실무 표준)</b> — 위 힌트 순서 그대로. <b>복잡하거나 여러 파일 충돌이면 반드시 이 방법</b>. 에디터·테스트·linter 다 쓸 수 있으니 실수 확률이 훨씬 낮음.
+  </div>
+  <div style='margin-bottom:10px; padding:8px; background:rgba(90,224,138,0.12); border-left:3px solid #5ae08a; border-radius:4px;'>
+    <b>충돌 마커 읽는 법</b><br>
+    <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code> ↓ 여기까지가 <b>내 변경</b> (feature/profile의 name 필드)<br>
+    <code>=======</code> ← 경계선<br>
+    ↓ 여기부터 <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt; origin/main</code> 까지가 <b>팀원 변경</b> (main의 email 필드)<br>
+    <b>둘 다 의미 있는 코드</b>라면 합쳐서 최종본을 만들어야 함 (name+email 둘 다 포함). 한쪽만 남기면 팀원 작업이 사라짐!
+  </div>
+  <div style='padding:8px; background:rgba(255,90,90,0.12); border-left:3px solid #ff5a5a; border-radius:4px;'>
+    <b>[실무 팁]</b><br>
+    • PR 리뷰가 길어질 것 같으면 중간중간 <code>git fetch origin && git merge origin/main</code>으로 <b>최신 main을 미리 받아두면</b> 충돌을 조기 발견·해결 가능<br>
+    • 충돌 해결 시엔 반드시 <b>팀원과 짧게 상의</b>해서 최종본을 정하세요 — 마음대로 한쪽 지우면 버그·기능 손실
+  </div>
+</div>`,
+ setup: (s) => {
+ // main has teammate's merged PR
+ s.remote.branches.main = [
+ {id:'a1', msg:'initial', files:{'README.md':'# Project','user.js':'// user module\nfunction getUser() { return null; }'}},
+ {id:'t1', msg:'teammate PR: add email field to user', files:{'README.md':'# Project','user.js':'// user module\nfunction getUser() { return { email: "" }; }'}}
+ ];
+ s.local.branches.main = [
+ {id:'a1', msg:'initial', files:{'README.md':'# Project','user.js':'// user module\nfunction getUser() { return null; }'}}
+ ];
+ // my feature branch (based on old main, not aware of teammate's merge)
+ s.local.branches['feature/profile'] = [
+ {id:'a1', msg:'initial', files:{'README.md':'# Project','user.js':'// user module\nfunction getUser() { return null; }'}},
+ {id:'m1', msg:'add profile name to user', files:{'README.md':'# Project','user.js':'// user module\nfunction getUser() { return { name: "" }; }'}}
+ ];
+ s.remote.branches['feature/profile'] = [...s.local.branches['feature/profile']];
+ s.local.current = 'feature/profile';
+ s.wd = {'README.md':'# Project','user.js':'// user module\nfunction getUser() { return { name: "" }; }'};
+ // PR already opened, but now blocked by conflict
+ s.prs['feature/profile'] = {branch:'feature/profile', status:'conflict', commits:[...s.local.branches['feature/profile']]};
+ s.missionState = {prOpened: true, reviewed: false, updated: false, conflictResolved: false};
+ },
+ check: (s) => {
+ const merged = s.remote.branches.main.some(c => c.msg.includes('profile') || c.msg.toLowerCase().includes('merge pull'));
+ const hasBoth = s.remote.branches.main.some(c => {
+ const u = c.files['user.js'] || '';
+ return u.includes('name') && u.includes('email');
+ });
+ return merged && hasBoth && !s.conflictPending;
+ }
+ }
+];
+
+// ---------- State ----------
+let state = {};
+let currentIdx = 0;
+let commitCounter = 100;
+
+function newCommitId() { commitCounter++; return 'c' + commitCounter.toString(16); }
+
+function resetScenario() {
+ loadScenario(currentIdx);
+}
+
+function loadScenario(idx) {
+ currentIdx = idx;
+ const sc = SCENARIOS[idx];
+ state = {
+ local: { branches: {}, current: 'main' },
+ remote: { branches: {} },
+ wd: {},
+ staging: {},
+ stash: [],
+ reflog: [],
+ orphanCommits: {},
+ conflictPending: false,
+ conflictFile: null,
+ conflictBranch: null,
+ missionState: {},
+ prs: {},
+ done: false
+ };
+ sc.setup(state);
+ document.getElementById('missionTitle').textContent = `시나리오 ${sc.id}: ${sc.title}`;
+ document.getElementById('missionBox').innerHTML = `
+ <div class="mission">
+ <div class="mission-title">${sc.title}</div>
+ <div class="mission-goal">${sc.goal}</div>
+ <div class="mission-hint">힌트: ${sc.hint}</div>
+ </div>
+ `;
+ document.getElementById('tipArea').innerHTML = `
+ <div class="tip-box">
+ <strong>핵심 개념</strong>
+ ${sc.tip}
+ </div>
+ `;
+ document.getElementById('output').innerHTML = '';
+ writeln(`시나리오 ${sc.id} 시작: ${sc.title}`, 'note');
+ writeln(`목표를 달성하면 자동으로 다음 시나리오로 진행됩니다. 'git status' 로 시작해보세요.`, 'info');
+ render();
+ renderScenarioList();
+}
+
+function renderScenarioList() {
+ const list = document.getElementById('scenarioList');
+ list.innerHTML = SCENARIOS.map((s, i) => `
+ <div class="scenario-item ${i === currentIdx ? 'active' : ''} ${doneList[i] ? 'done' : ''}"
+ onclick="loadScenario(${i})">
+ <span class="num">${String(s.id).padStart(2,'0')}</span>${s.title}
+ </div>
+ `).join('');
+}
+
+const doneList = {};
+
+// ---------- Render ----------
+function render() {
+ document.getElementById('promptBranch').textContent = `(${state.local.current})`;
+ // graph
+ let graph = '';
+ const branches = Object.keys(state.local.branches);
+ for (const b of branches) {
+ const commits = state.local.branches[b];
+ const isCurr = b === state.local.current;
+ const cls = b === 'main' ? 'g-main' : (b.startsWith('feature') ? 'g-feature' : 'g-other');
+ graph += `<span class="${cls}">${isCurr ? '* ' : ' '}${b}</span>\n`;
+ for (let i = commits.length - 1; i >= 0; i--) {
+ const c = commits[i];
+ graph += ` <span class="g-commit">○ ${c.id}</span> ${escapeHtml(c.msg)}\n`;
+ }
+ graph += '\n';
+ }
+ graph += '<span class="g-other">── remote (origin) ──</span>\n';
+ for (const b of Object.keys(state.remote.branches)) {
+ const commits = state.remote.branches[b];
+ graph += `<span class="g-main"> origin/${b}</span> → ${commits[commits.length-1].id} ${escapeHtml(commits[commits.length-1].msg)}\n`;
+ }
+ document.getElementById('graph').innerHTML = graph;
+
+ // working dir
+ const wd = document.getElementById('workingDir');
+ const files = Object.keys(state.wd);
+ wd.innerHTML = files.length === 0
+ ? '<div style="color:var(--muted);font-size:12px">(비어있음)</div>'
+ : files.map(f => {
+ const status = getFileStatus(f);
+ return `<div class="file-item" onclick="viewFile('${escapeHtml(f)}')" title="클릭해서 내용 보기">${escapeHtml(f)}<span class="status ${status}">${statusLabel(status)}</span></div>`;
+ }).join('');
+
+ // staging
+ const st = document.getElementById('stagingArea');
+ const stFiles = Object.keys(state.staging);
+ st.innerHTML = stFiles.length === 0
+ ? '<div style="color:var(--muted);font-size:12px">(비어있음)</div>'
+ : stFiles.map(f => `<div class="file-item" onclick="viewFile('${escapeHtml(f)}')" title="클릭해서 내용 보기">${escapeHtml(f)}<span class="status A">staged</span></div>`).join('');
+}
+
+function getFileStatus(f) {
+ const committed = getCommittedFile(f);
+ const wdVal = state.wd[f];
+ if (state.conflictPending && state.conflictFile === f) return 'U';
+ if (committed === undefined) return 'A';
+ if (committed !== wdVal) return 'M';
+ return '';
+}
+function statusLabel(s) {
+ return { M: '수정됨', A: '새파일', U: '충돌', D: '삭제', '': '동일' }[s];
+}
+function getCommittedFile(f) {
+ const b = state.local.branches[state.local.current];
+ if (!b) return undefined;
+ for (let i = b.length - 1; i >= 0; i--) {
+ if (f in b[i].files) return b[i].files[f];
+ }
+ return undefined;
+}
+
+function escapeHtml(s) {
+ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+// ---------- Output ----------
+function writeln(text, cls = 'info') {
+ const out = document.getElementById('output');
+ const div = document.createElement('div');
+ div.className = 'out-' + cls;
+ div.textContent = text;
+ out.appendChild(div);
+ out.scrollTop = out.scrollHeight;
+}
+
+function writeCmd(c) {
+ const out = document.getElementById('output');
+ const div = document.createElement('div');
+ div.className = 'out-cmd';
+ div.textContent = c;
+ out.appendChild(div);
+}
+
+// ---------- File viewer ----------
+function viewFile(f) {
+ if (state.wd[f] === undefined) { writeln(`cat: ${f}: No such file`, 'err'); return; }
+ writeCmd(`cat ${f}`);
+ const content = state.wd[f];
+ const isConflict = content.includes('<<<<<<<') || content.includes('=======') || content.includes('>>>>>>>');
+ if (isConflict) {
+ writeln(`── ${f} (충돌 상태) ──`, 'conflict');
+ writeln(content, 'warn');
+ writeln(`── end ──`, 'conflict');
+ writeln(`위쪽(HEAD) = 내 변경, 아래쪽 = 상대 변경. 마커 3줄을 지우고 최종 코드로 정리하세요.`, 'note');
+ writeln(`예시: echo "합쳐진 내용" > ${f}`, 'note');
+ } else {
+ writeln(`── ${f} ──`, 'info');
+ writeln(content, 'info');
+ }
+}
+
+// ---------- Command parser ----------
+document.getElementById('cmd').addEventListener('keydown', (e) => {
+ if (e.key === 'Enter') {
+ const v = e.target.value.trim();
+ if (!v) return;
+ writeCmd(v);
+ runCommand(v);
+ e.target.value = '';
+ render();
+ checkGoal();
+ }
+});
+
+function runCommand(raw) {
+ const parts = raw.split(/\s+/);
+ if (parts[0] !== 'git' && parts[0] !== 'pr' && parts[0] !== 'echo' && parts[0] !== 'help' && parts[0] !== 'ls' && parts[0] !== 'cat') {
+ writeln(`이 시뮬레이터는 git 명령어와 몇 가지 보조 명령(echo, ls, cat, pr)만 지원합니다.`, 'err');
+ return;
+ }
+ if (parts[0] === 'help') return showHelp();
+ if (parts[0] === 'ls') return writeln(Object.keys(state.wd).join(' ') || '(empty)', 'info');
+ if (parts[0] === 'cat') {
+ const f = parts[1];
+ if (state.wd[f] === undefined) writeln(`cat: ${f}: No such file`, 'err');
+ else writeln(state.wd[f], 'info');
+ return;
+ }
+ if (parts[0] === 'echo') return handleEcho(raw);
+ if (parts[0] === 'pr') return handlePR(parts.slice(1));
+ handleGit(parts.slice(1), raw);
+}
+
+function handleEcho(raw) {
+ // echo "content" > filename or echo content > filename
+ const m = raw.match(/^echo\s+(.+?)\s*>\s*(\S+)$/) || raw.match(/^echo\s+(.+?)\s*>>\s*(\S+)$/);
+ if (!m) { writeln('echo 사용법: echo "내용" >파일명', 'err'); return; }
+ let content = m[1].replace(/^["']|["']$/g, '');
+ const file = m[2];
+ if (raw.includes('>>') && state.wd[file] !== undefined) {
+ state.wd[file] = state.wd[file] + '\n' + content;
+ } else {
+ state.wd[file] = content;
+ }
+ writeln(`파일 '${file}' 작성됨.`, 'ok');
+}
+
+function handlePR(args) {
+ if (args[0] === 'open') {
+ const branch = state.local.current;
+ if (!state.remote.branches[branch]) {
+ writeln(`PR을 열려면 먼저 origin에 push 해야 합니다. (git push -u origin ${branch})`, 'err');
+ return;
+ }
+ state.prs[branch] = {branch, status:'open', commits: [...state.remote.branches[branch]]};
+ state.missionState.prOpened = true;
+ writeln(`[OK] Pull Request opened: ${branch} → main`, 'ok');
+ writeln(`리뷰어가 코드를 확인하고 있습니다...`, 'info');
+ setTimeout(() => {
+ writeln(`리뷰 코멘트 도착!`, 'warn');
+ writeln(`reviewer: "search.js에 입력값 검증(validation)이 빠졌어요. 수정 부탁드립니다."`, 'note');
+ state.missionState.reviewed = true;
+ }, 800);
+ } else if (args[0] === 'merge') {
+ const branch = state.local.current;
+ const pr = state.prs[branch];
+ if (!pr) { writeln('열려있는 PR이 없습니다.', 'err'); return; }
+ if (state.missionState.reviewed && !state.missionState.updated) {
+ writeln('[주의] 리뷰 피드백이 반영되지 않았습니다. 먼저 수정 커밋을 추가하세요.', 'err');
+ return;
+ }
+ // GitHub-style conflict check: feature branch must contain latest main
+ const featureRemote = state.remote.branches[branch];
+ const mainRemote = state.remote.branches.main;
+ const featureIds = featureRemote.map(c => c.id);
+ const mainTipId = mainRemote[mainRemote.length-1].id;
+ if (!featureIds.includes(mainTipId)) {
+ pr.status = 'conflict';
+ writeln(`[X] GitHub: "This branch has conflicts that must be resolved"`, 'err');
+ writeln(`main 브랜치가 앞서 있어요. 로컬에서 해결해야 합니다:`, 'note');
+ writeln(`1) git switch ${branch}`, 'note');
+ writeln(`2) git fetch origin`, 'note');
+ writeln(`3) git merge origin/main (충돌 발생 → 파일 수정)`, 'note');
+ writeln(`4) git add <파일> && git commit`, 'note');
+ writeln(`5) git push → PR 자동 업데이트`, 'note');
+ writeln(`6) pr merge`, 'note');
+ return;
+ }
+ // merge to remote main
+ const featureTip = featureRemote[featureRemote.length-1];
+ const mergeCommit = {id:newCommitId(), msg:`Merge pull request from ${branch}`, files:{...featureTip.files}};
+ state.remote.branches.main.push(mergeCommit);
+ pr.status = 'merged';
+ writeln(`[OK] PR merged into main. `, 'ok');
+ } else if (args[0] === 'status') {
+ const prs = Object.values(state.prs);
+ if (prs.length === 0) { writeln('열린 PR 없음.', 'info'); return; }
+ prs.forEach(p => {
+ const icon = p.status === 'conflict' ? '[X]' : (p.status === 'merged' ? '[완료]' : '');
+ writeln(`${icon} PR ${p.branch} → main [${p.status}]`, p.status === 'conflict' ? 'err' : 'ok');
+ if (p.status === 'conflict') {
+ writeln(`"This branch has conflicts that must be resolved"`, 'warn');
+ writeln(`옵션 A) GitHub 웹 에디터의 [Resolve conflicts] 버튼 — 한두 줄 충돌에만`, 'note');
+ writeln(`옵션 B) 로컬에서 해결 (권장): fetch → merge origin/main → 수정 → push`, 'note');
+ }
+ });
+ } else if (args[0] === 'list') {
+ const prs = Object.values(state.prs);
+ if (prs.length === 0) writeln('열린 PR 없음.', 'info');
+ else prs.forEach(p => writeln(`#${p.branch} [${p.status}]`, 'info'));
+ } else {
+ writeln('pr 명령: pr open | pr status | pr merge | pr list', 'info');
+ }
+}
+
+// ---------- Git commands ----------
+function handleGit(args, raw) {
+ const cmd = args[0];
+ const dispatch = {
+ 'status': gitStatus,
+ 'add': () => gitAdd(args.slice(1)),
+ 'commit': () => gitCommit(raw),
+ 'branch': () => gitBranch(args.slice(1)),
+ 'switch': () => gitSwitch(args.slice(1)),
+ 'checkout': () => gitCheckout(args.slice(1)),
+ 'log': () => gitLog(args.slice(1)),
+ 'push': () => gitPush(args.slice(1)),
+ 'pull': () => gitPull(args.slice(1)),
+ 'fetch': () => gitFetch(args.slice(1)),
+ 'merge': () => gitMerge(args.slice(1)),
+ 'reset': () => gitReset(args.slice(1)),
+ 'revert': () => gitRevert(args.slice(1)),
+ 'stash': () => gitStash(args.slice(1)),
+ 'reflog': gitReflog,
+ 'rm': () => gitRm(args.slice(1)),
+ 'cherry-pick': () => gitCherryPick(args.slice(1)),
+ 'diff': gitDiff,
+ 'restore': () => gitRestore(args.slice(1)),
+ 'remote': () => writeln('origin https://github.com/team/project.git', 'info'),
+ };
+ if (dispatch[cmd]) dispatch[cmd]();
+ else writeln(`지원하지 않는 git 서브커맨드: ${cmd}`, 'err');
+}
+
+function currentBranch() { return state.local.branches[state.local.current]; }
+function headCommit() { const b = currentBranch(); return b[b.length-1]; }
+
+function gitStatus() {
+ writeln(`On branch ${state.local.current}`, 'info');
+ if (state.conflictPending) {
+ writeln(`You have unmerged paths.`, 'warn');
+ writeln(`both modified: ${state.conflictFile}`, 'conflict');
+ writeln(`→ 파일을 열어 충돌을 해결한 뒤 git add ${state.conflictFile} → git commit`, 'note');
+ return;
+ }
+ const staged = Object.keys(state.staging);
+ const modified = Object.keys(state.wd).filter(f => {
+ const c = getCommittedFile(f);
+ return c !== undefined && c !== state.wd[f] && state.staging[f] === undefined;
+ });
+ const untracked = Object.keys(state.wd).filter(f => getCommittedFile(f) === undefined && state.staging[f] === undefined);
+ if (staged.length) { writeln('Changes to be committed:', 'ok'); staged.forEach(f => writeln(`new/modified: ${f}`, 'ok')); }
+ if (modified.length) { writeln('Changes not staged for commit:', 'warn'); modified.forEach(f => writeln(`modified: ${f}`, 'warn')); }
+ if (untracked.length) { writeln('Untracked files:', 'err'); untracked.forEach(f => writeln(`${f}`, 'err')); }
+ if (!staged.length && !modified.length && !untracked.length) writeln('nothing to commit, working tree clean', 'info');
+}
+
+function gitAdd(args) {
+ args = args || [];
+ if (args.length === 0) { writeln('add 할 파일을 지정하세요. 예) git add . / git add <파일>', 'err'); return; }
+ let targets = args;
+ if (args[0] === '.' || args[0] === '-A' || args[0] === '--all') targets = Object.keys(state.wd);
+ for (const f of targets) {
+ if (state.wd[f] === undefined) { writeln(`pathspec '${f}' did not match any files`, 'err'); continue; }
+ state.staging[f] = state.wd[f];
+ writeln(`staged: ${f}`, 'ok');
+ // clear conflict state if resolved file is staged (no more conflict markers)
+ if (state.conflictPending && state.conflictFile === f) {
+ const content = state.wd[f] || '';
+ if (!content.includes('<<<<<<<') && !content.includes('=======') && !content.includes('>>>>>>>')) {
+ state.conflictPending = false;
+ state.conflictFile = null;
+ writeln(`[OK] 충돌 해결됨. 이제 git commit 하세요.`, 'ok');
+ } else {
+ writeln(`[주의] 아직 충돌 마커(<<<<<<< ======= >>>>>>>)가 남아있습니다.`, 'warn');
+ }
+ }
+ }
+}
+
+function gitCommit(raw) {
+ // Accept: -m "msg" | -m'msg' | -m"msg" | -m msg | -m "unterminated...
+ const m = raw.match(/-m\s*"([^"]*)"?/)
+        || raw.match(/-m\s*'([^']*)'?/)
+        || raw.match(/-m\s+(.+?)\s*;?\s*$/);
+ if (!m) { writeln('commit 메시지를 지정하세요. 예) git commit -m "메시지"', 'err'); return; }
+ if (state.conflictPending) { writeln('충돌이 해결되지 않았습니다. 충돌 파일을 고치고 git add 하세요.', 'err'); return; }
+ if (Object.keys(state.staging).length === 0) { writeln('staging 영역이 비어있습니다. git add 먼저 실행.', 'err'); return; }
+ const msg = m[1];
+ const prev = headCommit();
+ const newFiles = {...prev.files};
+ for (const [f, v] of Object.entries(state.staging)) newFiles[f] = v;
+ const branchArr = currentBranch();
+ // If resolving a merge conflict, pull in source branch history first
+ if (state.afterMerge && state.conflictBranch) {
+ const src = state.conflictBranch;
+ const srcArr = src.startsWith('origin/')
+ ? state.remote.branches[src.replace('origin/','')]
+ : state.local.branches[src];
+ if (srcArr) {
+ const haveIds = branchArr.map(c => c.id);
+ for (const sc of srcArr) {
+ if (!haveIds.includes(sc.id)) branchArr.push({id:sc.id, msg:sc.msg, files:sc.files, _incoming:true});
+ }
+ }
+ state.conflictBranch = null;
+ }
+ const commit = { id: newCommitId(), msg, files: newFiles };
+ branchArr.push(commit);
+ state.staging = {};
+ writeln(`[${state.local.current} ${commit.id}] ${msg}`, 'ok');
+ if (state.afterMerge) state.afterMerge = false;
+}
+
+function gitBranch(args) {
+ if (args.length === 0) {
+ Object.keys(state.local.branches).forEach(b => {
+ writeln(`${b === state.local.current ? '* ' : ' '}${b}`, b === state.local.current ? 'ok' : 'info');
+ });
+ return;
+ }
+ if (args[0] === '-d' || args[0] === '-D') {
+ const b = args[1];
+ if (!state.local.branches[b]) { writeln(`branch '${b}' not found`, 'err'); return; }
+ delete state.local.branches[b];
+ writeln(`deleted branch ${b}`, 'ok');
+ return;
+ }
+ // git branch <name> [start]
+ const name = args[0];
+ let start;
+ if (args[1]) {
+ // could be commit id
+ const cid = args[1];
+ const found = findCommitById(cid);
+ if (!found) { writeln(`커밋 ${cid} 를 찾을 수 없습니다. git reflog 로 확인하세요.`, 'err'); return; }
+ start = found;
+ } else {
+ start = [...currentBranch()];
+ }
+ state.local.branches[name] = Array.isArray(start) ? start : [start];
+ writeln(`branch ${name} 생성됨.`, 'ok');
+}
+
+function findCommitById(cid) {
+ // search all branches + orphans, reconstruct linear history if orphan
+ for (const b of Object.values(state.local.branches)) {
+ const idx = b.findIndex(c => c.id === cid);
+ if (idx >= 0) return b.slice(0, idx + 1);
+ }
+ if (state.orphanCommits[cid]) {
+ // reconstruct chain from orphan using parent pointers
+ const chain = [];
+ let cur = state.orphanCommits[cid];
+ while (cur) {
+ chain.unshift({id:cur.id, msg:cur.msg, files:cur.files});
+ if (cur.parent) {
+ cur = state.orphanCommits[cur.parent] || findBaseCommit(cur.parent);
+ if (cur && !cur.parent && !state.orphanCommits[cur.id]) break;
+ } else cur = null;
+ }
+ // ensure base is included
+ if (chain.length && chain[0].id !== 'a1') {
+ const base = findBaseCommit('a1');
+ if (base) chain.unshift(base);
+ }
+ return chain;
+ }
+ return null;
+}
+function findBaseCommit(cid) {
+ for (const b of Object.values(state.local.branches)) {
+ const f = b.find(c => c.id === cid);
+ if (f) return {id:f.id, msg:f.msg, files:f.files};
+ }
+ return null;
+}
+
+function gitSwitch(args) {
+ if (args[0] === '-c') return gitSwitchCreate(args[1]);
+ const name = args[0];
+ if (!state.local.branches[name]) { writeln(`branch '${name}' not found`, 'err'); return; }
+ // check for uncommitted changes that would be overwritten
+ const dirty = hasUncommittedChanges();
+ if (dirty) {
+ writeln(`error: 작업 중인 변경사항이 있어 브랜치를 바꿀 수 없습니다.`, 'err');
+ writeln(`commit 하거나 git stash 로 임시저장 후 다시 시도하세요.`, 'note');
+ return;
+ }
+ state.local.current = name;
+ // reset wd to branch head
+ state.wd = {...headCommit().files};
+ state.staging = {};
+ if (name === 'main') state.missionState.visitedMain = true;
+ writeln(`Switched to branch '${name}'`, 'ok');
+}
+
+function gitSwitchCreate(name) {
+ state.local.branches[name] = [...currentBranch()];
+ state.local.current = name;
+ writeln(`Switched to a new branch '${name}'`, 'ok');
+}
+function gitCheckout(args) {
+ if (args[0] === '-b') return gitSwitchCreate(args[1]);
+ return gitSwitch(args);
+}
+
+function hasUncommittedChanges() {
+ // Working dir differs from last commit, and nothing fully staged to match
+ const head = headCommit().files;
+ for (const f of Object.keys(state.wd)) {
+ if (head[f] !== state.wd[f]) return true;
+ }
+ for (const f of Object.keys(head)) {
+ if (state.wd[f] === undefined) return true;
+ }
+ return false;
+}
+
+function gitLog(args) {
+ const b = currentBranch();
+ for (let i = b.length - 1; i >= 0; i--) {
+ const marker = i === b.length - 1 ? ' (HEAD)' : '';
+ writeln(`${b[i].id}  ${b[i].msg}${marker}`, 'warn');
+ }
+}
+
+function gitPush(args) {
+ const branch = state.local.current;
+ const local = state.local.branches[branch];
+ const remote = state.remote.branches[branch];
+ if (!remote && !args.includes('-u')) {
+ writeln(`error: 원격에 '${branch}' 브랜치가 없습니다. 처음 push는 -u origin ${branch} 를 붙이세요.`, 'err');
+ return;
+ }
+ if (remote) {
+ // check fast-forward
+ const localIds = local.map(c => c.id);
+ const remoteTip = remote[remote.length-1].id;
+ if (!localIds.includes(remoteTip)) {
+ writeln(`! [rejected] ${branch} -> ${branch} (non-fast-forward)`, 'err');
+ writeln(`hint: Updates were rejected because the remote contains work that you do`, 'note');
+ writeln(`hint: not have locally. 먼저 원격의 변경사항을 받아와야 합니다.`, 'note');
+ writeln(``, 'info');
+ writeln(`다음 순서로 진행하세요:`, 'warn');
+ writeln(`  1) git pull origin ${branch}   → 원격 커밋을 받아와 내 브랜치에 병합`, 'note');
+ writeln(`     (충돌 없으면 자동 병합 커밋 생성 → 바로 3번으로)`, 'note');
+ writeln(`     (충돌 나면 CONFLICT 메시지 → 아래 2-a~2-c 단계)`, 'note');
+ writeln(`  2-a) 오른쪽 패널에서 충돌 파일 클릭 → 마커 확인`, 'note');
+ writeln(`  2-b) echo "최종 내용" > <파일명>  으로 수정`, 'note');
+ writeln(`  2-c) git add <파일명> → git commit -m "Merge origin/${branch}"`, 'note');
+ writeln(`  3) git push   → 이번엔 성공`, 'note');
+ writeln(``, 'info');
+ writeln(`[주의] git push --force 는 절대 금지! 팀원의 커밋이 사라집니다.`, 'warn');
+ return;
+ }
+ }
+ state.remote.branches[branch] = [...local];
+ writeln(`[OK] pushed ${branch} to origin/${branch}`, 'ok');
+ // if PR existed and was in conflict state, GitHub re-checks mergeability
+ const pr = state.prs[branch];
+ if (pr) {
+ const mainTipId = state.remote.branches.main[state.remote.branches.main.length-1].id;
+ const featIds = state.remote.branches[branch].map(c => c.id);
+ if (featIds.includes(mainTipId)) {
+ if (pr.status === 'conflict') {
+ pr.status = 'open';
+ writeln(`GitHub: PR 재검사 완료 → "Ready to merge" [완료]`, 'ok');
+ state.missionState.conflictResolved = true;
+ }
+ }
+ // mark feature branch updated (for scenario 7 review flow)
+ if (state.missionState.reviewed) state.missionState.updated = true;
+ }
+}
+
+function gitFetch(args) {
+ writeln(`fetching from origin...`, 'info');
+ writeln(`[OK] 원격 정보 업데이트 완료. (아직 병합은 안됨)`, 'ok');
+}
+
+function gitPull(args) {
+ if (state.conflictPending) {
+ writeln(`error: 이미 병합 중입니다. 충돌을 먼저 해결하세요.`, 'err');
+ writeln(`  1) ${state.conflictFile} 파일의 충돌 마커 정리 (echo "..." > ${state.conflictFile})`, 'note');
+ writeln(`  2) git add ${state.conflictFile}`, 'note');
+ writeln(`  3) git commit -m "Merge ..." 으로 병합 완료`, 'note');
+ return;
+ }
+ const branch = args[1] || state.local.current;
+ const remote = state.remote.branches[branch];
+ if (!remote) { writeln(`원격 branch '${branch}' 없음`, 'err'); return; }
+ // merge remote into local
+ const local = state.local.branches[state.local.current];
+ const localIds = local.map(c => c.id);
+ const remoteIds = remote.map(c => c.id);
+ // fast-forward if possible
+ if (localIds.every(id => remoteIds.includes(id))) {
+ state.local.branches[state.local.current] = [...remote];
+ state.wd = {...remote[remote.length-1].files};
+ writeln(`[OK] Fast-forward pulled ${remote.length - local.length} new commit(s) from origin/${branch}`, 'ok');
+ return;
+ }
+ // need merge - check conflict via 3-way merge
+ const localTip = local[local.length-1].files;
+ const remoteTip = remote[remote.length-1].files;
+ // find common ancestor commit (last shared id)
+ const sharedIds = localIds.filter(id => remoteIds.includes(id));
+ const baseId = sharedIds[sharedIds.length-1];
+ const baseCommit = baseId ? (local.find(c => c.id === baseId) || remote.find(c => c.id === baseId)) : null;
+ const baseFiles = baseCommit ? baseCommit.files : {};
+ // file is in conflict only when BOTH sides changed it relative to the base
+ const conflicts = Object.keys(localTip).filter(f => {
+   if (remoteTip[f] === undefined) return false;
+   if (remoteTip[f] === localTip[f]) return false;
+   const baseContent = baseFiles[f];
+   const localChanged = baseContent !== localTip[f];
+   const remoteChanged = baseContent !== remoteTip[f];
+   return localChanged && remoteChanged;
+ });
+ if (conflicts.length > 0) {
+ state.conflictPending = true;
+ state.conflictFile = conflicts[0];
+ state.conflictBranch = `origin/${branch}`;
+ state.wd[conflicts[0]] = `<<<<<<< HEAD\n${localTip[conflicts[0]]}\n=======\n${remoteTip[conflicts[0]]}\n>>>>>>> origin/${branch}`;
+ writeln(`CONFLICT (content): Merge conflict in ${conflicts[0]}`, 'conflict');
+ writeln(`Automatic merge failed; fix conflicts and then commit the result.`, 'err');
+ writeln(``, 'info');
+ writeln(`해결 순서:`, 'warn');
+ writeln(`  1) 오른쪽 "Working Directory" 패널의 ${conflicts[0]} 클릭 → 충돌 마커 확인`, 'note');
+ writeln(`     (또는 cat ${conflicts[0]})`, 'note');
+ writeln(`     <<<<<<< HEAD 아래 = 내 변경 / ======= 아래 = 상대방 변경 / >>>>>>> 가 끝`, 'note');
+ writeln(`  2) echo "합친 최종 내용" > ${conflicts[0]}   → 마커 싹 지우고 새 내용으로 덮어쓰기`, 'note');
+ writeln(`  3) git add ${conflicts[0]}   → 해결 표시`, 'note');
+ writeln(`  4) git commit -m "Merge origin/${branch}"   → 병합 완료`, 'note');
+ writeln(`  5) git push   → 원격 반영`, 'note');
+ state.afterMerge = true;
+ return;
+ }
+ // merge (no conflicts)
+ const haveIds = local.map(c => c.id);
+ for (const rc of remote) {
+ if (!haveIds.includes(rc.id)) local.push({id:rc.id, msg:rc.msg, files:rc.files, _incoming:true});
+ }
+ const mergeCommit = {id:newCommitId(), msg:`Merge branch 'origin/${branch}'`, files:{...remoteTip, ...localTip}};
+ local.push(mergeCommit);
+ state.wd = {...mergeCommit.files};
+ writeln(`[OK] Merged origin/${branch}`, 'ok');
+}
+
+function gitMerge(args) {
+ if (state.conflictPending) {
+ writeln(`error: 이미 병합 중입니다. 충돌을 먼저 해결하세요.`, 'err');
+ writeln(`  1) ${state.conflictFile} 파일의 충돌 마커 정리`, 'note');
+ writeln(`  2) git add ${state.conflictFile}`, 'note');
+ writeln(`  3) git commit 으로 병합 완료`, 'note');
+ writeln(`  취소하려면 git merge --abort`, 'note');
+ return;
+ }
+ const src = args[0];
+ if (src === '--abort') {
+ writeln(`merge --abort는 이 시뮬레이터에서 아직 지원되지 않습니다. 파일을 수정하고 add+commit으로 진행하세요.`, 'info');
+ return;
+ }
+ let srcBranch;
+ if (src.startsWith('origin/')) {
+ srcBranch = state.remote.branches[src.replace('origin/','')];
+ } else {
+ srcBranch = state.local.branches[src];
+ }
+ if (!srcBranch) { writeln(`branch '${src}' not found`, 'err'); return; }
+ const local = currentBranch();
+ const localTip = local[local.length-1].files;
+ const srcTip = srcBranch[srcBranch.length-1].files;
+ // 3-way merge: file conflicts only when BOTH sides changed it vs common ancestor
+ const localIdsM = local.map(c => c.id);
+ const srcIdsM = srcBranch.map(c => c.id);
+ const sharedIdsM = localIdsM.filter(id => srcIdsM.includes(id));
+ const baseIdM = sharedIdsM[sharedIdsM.length-1];
+ const baseCommitM = baseIdM ? (local.find(c => c.id === baseIdM) || srcBranch.find(c => c.id === baseIdM)) : null;
+ const baseFilesM = baseCommitM ? baseCommitM.files : {};
+ const conflicts = Object.keys(localTip).filter(f => {
+   if (srcTip[f] === undefined) return false;
+   if (srcTip[f] === localTip[f]) return false;
+   const bc = baseFilesM[f];
+   return bc !== localTip[f] && bc !== srcTip[f];
+ });
+ if (conflicts.length > 0) {
+ state.conflictPending = true;
+ state.conflictFile = conflicts[0];
+ state.conflictBranch = src;
+ state.wd[conflicts[0]] = `<<<<<<< HEAD\n${localTip[conflicts[0]]}\n=======\n${srcTip[conflicts[0]]}\n>>>>>>> ${src}`;
+ writeln(`CONFLICT (content): Merge conflict in ${conflicts[0]}`, 'conflict');
+ writeln(`Automatic merge failed; fix conflicts and then commit the result.`, 'err');
+ writeln(``, 'info');
+ writeln(`해결 순서:`, 'warn');
+ writeln(`  1) 오른쪽 "Working Directory" 패널의 ${conflicts[0]} 클릭 → 충돌 마커 확인`, 'note');
+ writeln(`     (또는 cat ${conflicts[0]})`, 'note');
+ writeln(`     <<<<<<< HEAD 아래 = 내 변경 / ======= 아래 = 상대방 변경 / >>>>>>> 가 끝`, 'note');
+ writeln(`  2) echo "합친 최종 내용" > ${conflicts[0]}   → 마커 싹 지우고 새 내용으로 덮어쓰기`, 'note');
+ writeln(`  3) git add ${conflicts[0]}   → 해결 표시`, 'note');
+ writeln(`  4) git commit -m "Merge ${src}"   → 병합 완료`, 'note');
+ state.afterMerge = true;
+ return;
+ }
+ // include source commits not already in local history
+ const localIds = local.map(c => c.id);
+ for (const sc of srcBranch) {
+ if (!localIds.includes(sc.id)) local.push({id:sc.id, msg:sc.msg, files:sc.files, _incoming:true});
+ }
+ const mergeCommit = {id:newCommitId(), msg:`Merge branch '${src}' into ${state.local.current}`, files:{...localTip, ...srcTip}};
+ local.push(mergeCommit);
+ state.wd = {...mergeCommit.files};
+ writeln(`[OK] Merged ${src} (no conflicts)`, 'ok');
+}
+
+function gitReset(args) {
+ const hard = args.includes('--hard');
+ const target = args[args.length-1];
+ const b = currentBranch();
+ if (target === 'HEAD~1') {
+ if (b.length < 2) { writeln('이전 커밋 없음', 'err'); return; }
+ const removed = b.pop();
+ state.reflog.push({id: b[b.length-1].id, action:`reset: moving to HEAD~1 (removed ${removed.id})`});
+ if (hard) state.wd = {...b[b.length-1].files};
+ writeln(`HEAD is now at ${b[b.length-1].id} ${b[b.length-1].msg}`, 'warn');
+ writeln(`[주의] reset --hard 는 작업을 삭제합니다. push 된 커밋엔 쓰지 마세요 (revert 사용).`, 'warn');
+ } else {
+ writeln(`reset 지원: git reset --hard HEAD~1`, 'info');
+ }
+}
+
+function gitRevert(args) {
+ const cid = args[0];
+ const b = currentBranch();
+ const target = b.find(c => c.id === cid);
+ if (!target) { writeln(`commit ${cid} not found`, 'err'); return; }
+ // find previous state
+ const idx = b.indexOf(target);
+ const prevFiles = idx === 0 ? {} : b[idx-1].files;
+ const revertCommit = {id:newCommitId(), msg:`Revert "${target.msg}"`, files:{...prevFiles}};
+ b.push(revertCommit);
+ state.wd = {...revertCommit.files};
+ writeln(`[OK] Reverted commit ${cid} (새 커밋 ${revertCommit.id} 추가됨)`, 'ok');
+ writeln(`ℹ️ 히스토리는 보존되고, 되돌리는 커밋이 새로 생겼습니다.`, 'note');
+}
+
+function gitStash(args) {
+ if (args[0] === 'pop') {
+ const s = state.stash.pop();
+ if (!s) { writeln('stash 비어있음', 'err'); return; }
+ for (const [f, v] of Object.entries(s)) state.wd[f] = v;
+ writeln(`[OK] stash 복원 완료`, 'ok');
+ return;
+ }
+ if (args[0] === 'list') {
+ state.stash.forEach((s, i) => writeln(`stash@{${i}}: ${Object.keys(s).join(', ')}`, 'info'));
+ return;
+ }
+ // stash save
+ const head = headCommit().files;
+ const changes = {};
+ for (const f of Object.keys(state.wd)) {
+ if (state.wd[f] !== head[f]) changes[f] = state.wd[f];
+ }
+ if (Object.keys(changes).length === 0) { writeln('저장할 변경사항 없음', 'info'); return; }
+ state.stash.push(changes);
+ for (const f of Object.keys(changes)) {
+ if (head[f] === undefined) delete state.wd[f];
+ else state.wd[f] = head[f];
+ }
+ state.missionState.stashed = true;
+ writeln(`[OK] Saved working directory to stash@{0}`, 'ok');
+}
+
+function gitReflog() {
+ if (state.reflog.length === 0) { writeln('(비어있음)', 'info'); return; }
+ state.reflog.forEach((r, i) => writeln(`${r.id} HEAD@{${i}}: ${r.action}`, 'info'));
+}
+
+function gitRm(args) {
+ const cached = args.includes('--cached');
+ const recursive = args.includes('-r');
+ const file = args[args.length-1];
+ // handle node_modules/
+ const matches = Object.keys(state.staging).filter(f => f === file || (recursive && f.startsWith(file)));
+ if (matches.length === 0) { writeln(`pathspec ${file} not matched`, 'err'); return; }
+ for (const m of matches) {
+ delete state.staging[m];
+ writeln(`rm '${m}' (from index${cached?'':' and working tree'})`, 'ok');
+ if (!cached) delete state.wd[m];
+ }
+}
+
+function gitCherryPick(args) {
+ const cid = args[0];
+ let target = null;
+ let prevFiles = null;
+ for (const b of Object.values(state.local.branches)) {
+ const idx = b.findIndex(c => c.id === cid);
+ if (idx >= 0) { target = b[idx]; prevFiles = idx > 0 ? b[idx-1].files : {}; break; }
+ }
+ if (!target) { writeln(`commit ${cid} not found`, 'err'); return; }
+ // apply diff onto current
+ const curFiles = {...headCommit().files};
+ for (const [f, v] of Object.entries(target.files)) {
+ if (prevFiles[f] !== v) curFiles[f] = v;
+ }
+ const nc = {id:newCommitId(), msg: target.msg, files: curFiles};
+ currentBranch().push(nc);
+ state.wd = {...curFiles};
+ writeln(`[OK] cherry-picked ${cid}: ${target.msg}`, 'ok');
+}
+
+function gitDiff() {
+ const head = headCommit().files;
+ let any = false;
+ for (const f of Object.keys(state.wd)) {
+ if (state.wd[f] !== head[f]) {
+ any = true;
+ writeln(`--- a/${f}\n+++ b/${f}`, 'warn');
+ writeln(`- ${head[f] || '(new file)'}\n+ ${state.wd[f]}`, 'info');
+ }
+ }
+ if (!any) writeln('(변경 없음)', 'info');
+}
+
+function gitRestore(args) {
+ const f = args[args.length-1];
+ const head = headCommit().files;
+ if (head[f] !== undefined) { state.wd[f] = head[f]; writeln(`restored ${f}`, 'ok'); }
+ else { delete state.wd[f]; writeln(`removed ${f}`, 'ok'); }
+}
+
+// ---------- Goal checking ----------
+function checkGoal() {
+ if (doneList[currentIdx]) return;
+ const sc = SCENARIOS[currentIdx];
+ if (sc.check(state)) {
+ doneList[currentIdx] = true;
+ writeln(`\n 시나리오 ${sc.id} 완료! "${sc.title}"`, 'ok');
+ // strip HTML tags for terminal display (tips may contain rich HTML)
+ const plainTip = String(sc.tip).replace(/<[^>]+>/g, '').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
+ writeln(`핵심: ${plainTip}`, 'note');
+ renderScenarioList();
+ if (currentIdx + 1 < SCENARIOS.length) {
+ writeln(`\n3초 후 다음 시나리오로 이동합니다...`, 'info');
+ setTimeout(() => loadScenario(currentIdx+1), 3000);
+ } else {
+ writeln(`\n 모든 시나리오 완료! 이제 실전 Git 협업에서 자신감을 가져보세요.`, 'ok');
+ }
+ }
+}
+
+function showHelp() {
+ writeln(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 지원 명령어 (주요)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[기본]
+ git status / git log / git diff
+ git add <file> | git add .
+ git commit -m "msg"
+ git branch [-d] / git switch [-c] <name>
+[원격]
+ git push [-u origin <branch>]
+ git pull / git fetch / git merge <branch>
+[복구]
+ git reset --hard HEAD~1 (로컬에서만!)
+ git revert <id> (팀 공유 브랜치 안전)
+ git reflog (삭제한 커밋 복구)
+ git cherry-pick <id> (특정 커밋만 가져오기)
+[보조]
+ git stash / git stash pop / git stash list
+ git rm --cached <file> (.gitignore 적용 후)
+ git restore <file>
+[PR 워크플로우]
+ pr open / pr status / pr merge / pr list
+ ※ GitHub PR 충돌 시: git fetch origin → git merge origin/main
+ → 충돌 해결 → git add → git commit → git push → pr merge
+[파일]
+ echo "내용" > file ls cat <file>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`, 'info');
+}
+
+// ---------- Learn content ----------
+const LEARN = {
+ pr: `
+ <h2>Pull Request(PR) 개념 완전 정복</h2>
+
+ <h3>PR이 뭔가요?</h3>
+ <p>Pull Request는 <strong>"내 브랜치의 변경사항을 main 브랜치에 합쳐 주세요"</strong>라고 팀에게 요청하는 공식 제안서입니다. 단순히 코드를 머지하는 버튼이 아니라, <strong>코드 리뷰 · 토론 · CI 자동 검증 · 변경 이력 기록</strong>이 모두 모이는 공간이에요.</p>
+
+ <div class="box-info">
+ <strong>왜 그냥 main에 직접 push하면 안 되나요?</strong><br>
+ ① 리뷰 없이 버그가 그대로 배포될 수 있어요<br>
+ ② 다른 팀원과 동시 작업이 충돌해서 main이 깨질 수 있어요<br>
+ ③ 누가 · 왜 · 무엇을 바꿨는지 추적이 어려워져요<br>
+ ④ 대부분의 팀/회사는 main 브랜치에 <code>Branch Protection</code>을 걸어서 직접 push를 막아둡니다
+ </div>
+
+ <h3>PR 생명주기 (Lifecycle)</h3>
+ <ol>
+ <li><strong>브랜치 생성</strong> — <code>git switch -c feature/login</code></li>
+ <li><strong>작업 & 커밋</strong> — 작은 단위로 여러 번 나눠 커밋</li>
+ <li><strong>push</strong> — <code>git push -u origin feature/login</code></li>
+ <li><strong>PR 열기</strong> — GitHub에서 "Compare & pull request" 클릭</li>
+ <li><strong>코드 리뷰</strong> — 팀원이 라인별 코멘트, 질문, 제안</li>
+ <li><strong>피드백 반영</strong> — 추가 커밋 → push하면 PR에 자동 반영</li>
+ <li><strong>승인(Approve)</strong> — 리뷰어가 Approve 버튼 클릭</li>
+ <li><strong>머지</strong> — Merge / Squash / Rebase 중 선택</li>
+ <li><strong>브랜치 삭제</strong> — 머지 후 깔끔하게 정리</li>
+ </ol>
+
+ <h3>좋은 PR을 만드는 5가지 원칙</h3>
+ <ul>
+ <li><strong>작게 쪼개기</strong> — 300줄 이하가 이상적. 1000줄 넘어가면 리뷰어가 포기합니다</li>
+ <li><strong>한 가지만 하기</strong> — "로그인 기능 추가 + 버튼 색 변경 + 리팩토링" [X]</li>
+ <li><strong>명확한 제목</strong> — <code>[Feat] 소셜 로그인 추가 (#issue-42)</code></li>
+ <li><strong>설명 꼼꼼히</strong> — 무엇을/왜/어떻게 바꿨는지, 스크린샷, 테스트 방법</li>
+ <li><strong>스스로 먼저 리뷰</strong> — PR 열기 전에 Files Changed 탭에서 본인 코드를 한 번 읽어보세요</li>
+ </ul>
+
+ <h3>머지 전략 3가지</h3>
+ <h4>1. Merge Commit</h4>
+ <p>feature 브랜치의 모든 커밋이 main에 그대로 들어가고, 병합 커밋이 하나 추가됩니다. 히스토리가 풍부하지만 복잡해요.</p>
+
+ <h4>2. Squash and Merge (권장 )</h4>
+ <p>feature의 여러 커밋을 <strong>하나로 합쳐서</strong> main에 넣습니다. 히스토리가 깔끔하고 revert 하기 쉬워요. 대부분의 팀에서 기본값으로 사용합니다.</p>
+
+ <h4>3. Rebase and Merge</h4>
+ <p>feature 커밋들을 일직선으로 main 위에 다시 얹습니다. 깔끔하지만 충돌 해결이 까다로울 수 있어요.</p>
+
+ <div class="box-tip">
+ <strong>[힌트] Squash가 왜 인기?</strong><br>
+ feature 작업하다 보면 "오타 수정", "빌드 실패 수정", "주석 추가" 같은 자잘한 커밋이 10개씩 생깁니다. Squash하면 이런 게 main 히스토리를 더럽히지 않아요.
+ </div>
+
+ <h3>리뷰받을 때 자주 실수하는 것들</h3>
+ <ul>
+ <li>[X] 리뷰 코멘트를 무시하고 바로 머지</li>
+ <li>[X] "사소한 거라서요" 하며 force push로 히스토리 덮어쓰기</li>
+ <li>[X] PR 올리고 며칠 방치 → main이 너무 앞서가서 충돌 폭발</li>
+ <li>[X] 테스트 안 돌려보고 "됩니다!" 코멘트</li>
+ <li>[완료] 코멘트마다 <code>Done</code>또는 이유 설명으로 답변</li>
+ <li>[완료] 수정 커밋은 <code>fix: review comment</code>같이 명확한 메시지로</li>
+ </ul>
+ `,
+
+ conflict: `
+ <h2>병합 충돌(Merge Conflict) 해결 가이드</h2>
+
+ <p>충돌은 <strong>두 사람이 같은 파일의 같은 부분을 다르게 수정</strong>했을 때 Git이 "누구 말이 맞는지 모르겠으니 네가 정해줘"라고 손을 드는 상황입니다. 겁먹을 필요 없어요. 원리와 절차만 알면 5분이면 해결됩니다.</p>
+
+ <h3>충돌 마커 읽는 법</h3>
+ <pre><span class="cmt">// 파일 안에 이런 게 생기면 충돌입니다</span>
+function getUser() {
+<span class="kw">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</span> <span class="cmt">← 내 변경사항 (현재 브랜치)</span>
+ return { name: "" };
+<span class="kw">=======</span> <span class="cmt">← 경계선</span>
+ return { email: "" };
+<span class="kw">&gt;&gt;&gt;&gt;&gt;&gt;&gt; origin/main</span> <span class="cmt">← 상대방 변경사항</span>
+}</pre>
+ <p><strong>목표:</strong>마커 3줄(<code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>, <code>=======</code>, <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>)을 모두 지우고, 양쪽 변경을 합친 최종 코드로 만드는 것. 위/아래 중 한쪽만 남겨야 할 수도, 둘 다 합쳐야 할 수도 있어요.</p>
+
+ <div class="box-warn">
+ <strong>[주의] 절대 하면 안 되는 것</strong><br>
+ • 잘 모르겠다고 <strong>상대방 코드를 통째로 지우기</strong> — 팀원의 하루 작업이 사라집니다<br>
+ • 마커를 안 지우고 커밋 — <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>가 코드에 박힌 채 배포됩니다 (실제로 많이 발생!)<br>
+ • 모르겠으면 그냥 <code>--abort</code>로 되돌리고, 작성자에게 물어보세요
+ </div>
+
+ <h3>어디서 해결하지? 3가지 선택지</h3>
+ <div class="tool-tabs">
+ <button class="tool-tab active" onclick="switchTool(this,'bash')">Git Bash / 터미널</button>
+ <button class="tool-tab" onclick="switchTool(this,'vscode')">VSCode</button>
+ <button class="tool-tab" onclick="switchTool(this,'intellij')">IntelliJ / WebStorm</button>
+ </div>
+
+ <div class="tool-panel active" data-pane="bash">
+ <h4>Git Bash 전체 절차</h4>
+ <pre><span class="cmt"># 1. 내 feature 브랜치에서 시작</span>
+$ git switch feature/profile
+
+<span class="cmt"># 2. 최신 원격 정보 받아오기 (아직 병합 X)</span>
+$ git fetch origin
+
+<span class="cmt"># 3. main을 내 브랜치로 병합 시도</span>
+$ git merge origin/main
+Auto-merging src/user.js
+CONFLICT (content): Merge conflict in src/user.js
+Automatic merge failed; fix conflicts and then commit the result.
+
+<span class="cmt"># 4. 어떤 파일이 충돌났는지 확인</span>
+$ git status
+ <span class="kw">both modified:</span> src/user.js
+
+<span class="cmt"># 5. 파일 열어서 마커 수동 편집 (vim, nano, code 등)</span>
+$ code src/user.js <span class="cmt"># VSCode에서 열기</span>
+$ vim src/user.js <span class="cmt"># 터미널 내 편집</span>
+
+<span class="cmt"># 6. 마커 지우고 합쳐진 최종 코드로 저장 후</span>
+$ git add src/user.js
+$ git commit <span class="cmt"># 자동 머지 메시지가 열림 → 저장</span>
+$ git push
+
+<span class="cmt"># 도저히 모르겠으면 처음으로 되돌리기</span>
+$ git merge --abort</pre>
+
+ <div class="box-tip">
+ <strong>[목표] Git Bash 실전 팁</strong><br>
+ • <code>git diff</code> — 현재 충돌 상태의 양쪽 차이 보기<br>
+ • <code>git log --merge -p</code> — 충돌 원인이 된 커밋들만 보기<br>
+ • <code>git checkout --ours file</code> / <code>--theirs file</code> — 내 쪽/상대 쪽 통째로 선택<br>
+ • <code>git mergetool</code> — 설정된 외부 머지 도구(meld, kdiff3 등) 실행
+ </div>
+ </div>
+
+ <div class="tool-panel" data-pane="vscode">
+ <h4>VSCode에서 해결하기 (가장 직관적)</h4>
+ <ol>
+ <li>터미널에서 <code>git merge origin/main</code>실행 → 충돌 발생</li>
+ <li>왼쪽 <strong>Source Control 패널(Ctrl+Shift+G)</strong>열기 — "Merge Changes" 섹션에 충돌 파일 표시됨</li>
+ <li>충돌 파일 클릭 — 편집기에 <strong>4개의 버튼</strong>이 자동으로 표시됩니다:
+ <ul>
+ <li><code>Accept Current Change</code> — 내 쪽(HEAD)만 남기기</li>
+ <li><code>Accept Incoming Change</code> — 상대 쪽만 남기기</li>
+ <li><code>Accept Both Changes</code> — 둘 다 남기기 (순서대로)</li>
+ <li><code>Compare Changes</code> — 3-way 비교 에디터 열기</li>
+ </ul>
+ </li>
+ <li>원하는 버튼 클릭 또는 직접 편집으로 마커 정리</li>
+ <li>Source Control 패널에서 파일 옆 <strong>+ (Stage)</strong>클릭</li>
+ <li>커밋 메시지 입력 → <strong>[OK] Commit</strong>클릭</li>
+ <li><strong>... → Push</strong>또는 하단 상태바 동기화 버튼 클릭</li>
+ </ol>
+
+ <div class="box-info">
+ <strong>VSCode 추천 확장</strong><br>
+ • <strong>GitLens</strong> — 각 라인 옆에 누가/언제 수정했는지 표시 → 충돌난 코드의 맥락을 즉시 파악<br>
+ • <strong>Git Graph</strong> — 브랜치/커밋 그래프를 시각적으로 확인<br>
+ • <strong>GitHub Pull Requests</strong> — VSCode 내에서 PR 리뷰 · 코멘트 · 머지까지
+ </div>
+
+ <div class="box-warn">
+ <strong>[힌트] 3-way Merge 뷰 활용</strong><br>
+ VSCode 1.69+ 에서는 "Compare Changes" 대신 <strong>Merge Editor</strong>가 기본으로 열립니다. 왼쪽(Incoming) · 오른쪽(Current) · 아래(Result) 3분할로 충돌 블록마다 "Accept Incoming" / "Accept Current" 체크박스가 있어 클릭만으로 해결 가능.
+ </div>
+ </div>
+
+ <div class="tool-panel" data-pane="intellij">
+ <h4>IntelliJ / WebStorm / PyCharm에서 해결하기 (강력한 3-way merge)</h4>
+ <ol>
+ <li>하단 <strong>Git 탭</strong>또는 터미널에서 merge/pull 실행 → 충돌 발생</li>
+ <li><strong>Conflicts 다이얼로그</strong>가 자동으로 뜸. 또는 우측 상단 Git Widget → <code>Resolve Conflicts</code></li>
+ <li>충돌 파일 선택 후 <strong>[Merge...]</strong>버튼 클릭</li>
+ <li>3-way Merge 창이 열림 — 매우 강력합니다:
+ <ul>
+ <li><strong>왼쪽</strong>: Your version (HEAD) — 내 변경</li>
+ <li><strong>가운데</strong>: Result — 최종 결과 (여기서 편집)</li>
+ <li><strong>오른쪽</strong>: Their version — 상대 변경</li>
+ <li>각 충돌 블록 옆 <strong>&gt;&gt; / &lt;&lt;</strong>화살표로 한쪽 가져오기, <strong>X</strong>로 제외</li>
+ <li>복잡하면 가운데 Result에 직접 타이핑해서 편집 가능</li>
+ </ul>
+ </li>
+ <li>모든 충돌 해결 후 <strong>[Apply]</strong>클릭</li>
+ <li><strong>Commit 창</strong>이 자동으로 열림 (Ctrl+K) — 자동 생성된 merge 메시지 확인
+ </li>
+ <li><strong>Commit and Push</strong>버튼 (Ctrl+Alt+K)으로 한 번에 마무리</li>
+ </ol>
+
+ <div class="box-info">
+ <strong>IntelliJ만의 강점</strong><br>
+ • <strong>Magic Resolve</strong>버튼 — 단순한 충돌(공백/임포트 등)은 자동 해결<br>
+ • <strong>Compare with Branch</strong> — 충돌 전에 미리 비교해서 위험 파악<br>
+ • <strong>Local History</strong> (File → Local History) — 내 로컬 편집 이력을 IDE가 따로 보관. 실수로 덮어써도 복구 가능<br>
+ • <strong>Shelve</strong> — git stash보다 안전한 IDE 내 임시 저장
+ </div>
+ </div>
+
+ <h3>충돌을 애초에 줄이는 방법</h3>
+ <ul>
+ <li><strong>매일 아침 main을 pull해서 내 브랜치에 merge</strong> — 충돌이 작을 때 해결</li>
+ <li><strong>PR은 작게, 빨리 머지</strong> — 오래 묵을수록 main과 멀어짐</li>
+ <li><strong>팀원과 담당 영역 분리</strong> — 같은 파일 동시 편집 피하기</li>
+ <li><strong>포매터/린터 통일</strong> (Prettier, ESLint) — 공백/세미콜론 충돌 원천 차단</li>
+ <li><strong>큰 리팩토링 전 공지</strong> — "내일 이 파일 손댈 거에요" Slack 한 줄</li>
+ </ul>
+ `,
+
+ workflow: `
+ <h2>팀 프로젝트 Git 워크플로우 (하루의 흐름)</h2>
+
+ <h3>아침 루틴 (5분)</h3>
+ <pre>$ git switch main
+$ git pull origin main <span class="cmt"># 간밤에 팀원이 머지한 거 받기</span>
+$ git switch feature/my-task
+$ git merge main <span class="cmt"># 내 브랜치에 최신 main 반영</span>
+$ npm install <span class="cmt"># 의존성 변경 있었으면</span></pre>
+
+ <div class="box-tip">
+ <strong>이 한 단계로 "왜 내 로컬만 빌드 안 돼?" 이슈의 80%가 사라집니다.</strong>
+ </div>
+
+ <h3>작업 중</h3>
+ <ul>
+ <li>기능 하나 끝날 때마다 작은 커밋 — <code>feat: add login form</code></li>
+ <li>커밋 메시지 컨벤션: <code>feat / fix / refactor / docs / test / chore</code></li>
+ <li>중간에 다른 일 해야 하면 <code>git stash</code></li>
+ <li>원격에도 백업 삼아 자주 push — 노트북 고장나도 안전</li>
+ </ul>
+
+ <h3>PR 올리기 전 체크리스트</h3>
+ <ol>
+ <li>[ ] <code>git merge main</code>으로 최신 main 반영 완료</li>
+ <li>[ ] 빌드 · 테스트 로컬에서 통과</li>
+ <li>[ ] 린터 · 포매터 실행</li>
+ <li>[ ] console.log · 디버그 코드 · <code>TODO</code>제거</li>
+ <li>[ ] <code>.env</code> · API 키 같은 비밀 파일 안 올라갔는지 확인 (<code>git diff --cached</code>)</li>
+ <li>[ ] <strong>본인 PR을 본인이 먼저 리뷰</strong> — 절반 이상의 실수는 여기서 잡힘</li>
+ </ol>
+
+ <h3>PR 머지 후</h3>
+ <pre>$ git switch main
+$ git pull origin main <span class="cmt"># 방금 머지한 내 PR 반영</span>
+$ git branch -d feature/my-task <span class="cmt"># 로컬 브랜치 정리</span>
+$ git push origin --delete feature/my-task <span class="cmt"># 원격도 삭제 (GitHub 버튼이 더 편함)</span></pre>
+
+ <h3>긴급 상황 대응 치트시트</h3>
+ <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+ <tr style="background:var(--surface2);">
+ <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">상황</th>
+ <th style="padding:10px; text-align:left; border-bottom:1px solid var(--border);">명령어</th>
+ </tr>
+ <tr><td style="padding:10px; border-bottom:1px solid var(--border);">방금 한 커밋 메시지 수정</td><td style="padding:10px; border-bottom:1px solid var(--border);"><code>git commit --amend -m "새 메시지"</code></td></tr>
+ <tr><td style="padding:10px; border-bottom:1px solid var(--border);">아직 push 안 한 마지막 커밋 취소</td><td style="padding:10px; border-bottom:1px solid var(--border);"><code>git reset --soft HEAD~1</code></td></tr>
+ <tr><td style="padding:10px; border-bottom:1px solid var(--border);">이미 push한 커밋 되돌리기</td><td style="padding:10px; border-bottom:1px solid var(--border);"><code>git revert &lt;commit&gt;</code></td></tr>
+ <tr><td style="padding:10px; border-bottom:1px solid var(--border);">작업 파일 전체 날리고 깨끗하게</td><td style="padding:10px; border-bottom:1px solid var(--border);"><code>git restore .</code></td></tr>
+ <tr><td style="padding:10px; border-bottom:1px solid var(--border);">잘못 지운 브랜치 복구</td><td style="padding:10px; border-bottom:1px solid var(--border);"><code>git reflog</code> → <code>git branch X &lt;id&gt;</code></td></tr>
+ <tr><td style="padding:10px; border-bottom:1px solid var(--border);">머지 도중 포기</td><td style="padding:10px; border-bottom:1px solid var(--border);"><code>git merge --abort</code></td></tr>
+ <tr><td style="padding:10px;">rebase 도중 포기</td><td style="padding:10px;"><code>git rebase --abort</code></td></tr>
+ </table>
+
+ <div class="box-warn" style="margin-top:20px;">
+ <strong>평생 기억할 3가지 금기</strong><br>
+ 1. 공유 브랜치(main, develop)에 <code>--force</code> push 금지<br>
+ 2. <code>git reset --hard</code>는 혼자 쓰는 로컬 브랜치에서만<br>
+ 3. <code>.env</code> / 비밀키 커밋 금지 — 한 번 노출되면 히스토리 지워도 노출된 것
+ </div>
+ `
+};
+
+function openLearn(tab) {
+ document.getElementById('learnModal').classList.add('open');
+ switchLearn(tab || 'pr');
+}
+function closeLearn() {
+ document.getElementById('learnModal').classList.remove('open');
+}
+function switchLearn(tab) {
+ document.querySelectorAll('.ltab').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+ document.getElementById('learnBody').innerHTML = LEARN[tab];
+ document.getElementById('learnBody').scrollTop = 0;
+}
+function switchTool(btn, pane) {
+ const parent = btn.closest('.learn-body');
+ parent.querySelectorAll('.tool-tab').forEach(el => el.classList.remove('active'));
+ btn.classList.add('active');
+ parent.querySelectorAll('.tool-panel').forEach(el => el.classList.toggle('active', el.dataset.pane === pane));
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeLearn(); });
+
+// ---------- Init ----------
+loadScenario(0);
+</script>
+</body>
+</html>

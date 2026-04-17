@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Git 실전 강의: 브랜치부터 PR까지</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Pretendard:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161920;
+    --surface2: #1e2230;
+    --border: #2a2f40;
+    --accent: #4ade80;
+    --accent2: #60a5fa;
+    --accent3: #f472b6;
+    --accent4: #facc15;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --code-bg: #111318;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Pretendard', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* PROGRESS BAR */
+  #progress-bar {
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    width: 0%;
+    z-index: 1000;
+    transition: width 0.1s;
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 56px;
+    background: rgba(13, 15, 20, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    z-index: 100;
+  }
+
+  .nav-logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-logo span { color: var(--muted); }
+
+  .nav-chapters {
+    display: flex;
+    gap: 6px;
+  }
+
+  .nav-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .nav-dot.active { background: var(--accent); }
+  .nav-dot:hover { background: var(--accent2); transform: scale(1.3); }
+
+  /* MAIN LAYOUT */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 100px 32px 80px;
+  }
+
+  /* HERO */
+  .hero {
+    padding: 80px 0 60px;
+    text-align: center;
+    position: relative;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse at center, rgba(74, 222, 128, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    background: rgba(74, 222, 128, 0.05);
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 24px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .hero h1 {
+    font-size: clamp(32px, 6vw, 56px);
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 .highlight {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-size: 18px;
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto 40px;
+  }
+
+  .hero-meta {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    font-size: 13px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .hero-meta span { display: flex; align-items: center; gap: 6px; }
+  .hero-meta .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  /* CHAPTER HEADER */
+  .chapter {
+    margin-top: 80px;
+    scroll-margin-top: 80px;
+  }
+
+  .chapter-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 10px;
+    opacity: 0.8;
+  }
+
+  .chapter h2 {
+    font-size: clamp(22px, 4vw, 32px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin-bottom: 24px;
+    line-height: 1.3;
+  }
+
+  /* CONTENT BLOCKS */
+  .prose {
+    font-size: 16px;
+    color: #b0bac9;
+    margin-bottom: 24px;
+    line-height: 1.8;
+  }
+
+  .prose strong { color: var(--text); font-weight: 600; }
+
+  /* CODE BLOCK */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 24px 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .code-header {
+    background: var(--surface);
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-title {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .code-dots { display: flex; gap: 5px; }
+  .code-dots span {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .code-dots span:nth-child(1) { background: #ff5f57; }
+  .code-dots span:nth-child(2) { background: #febc2e; }
+  .code-dots span:nth-child(3) { background: #28c840; }
+
+  .code-content {
+    padding: 20px 24px;
+    font-size: 14px;
+    line-height: 2;
+    overflow-x: auto;
+  }
+
+  .code-content .prompt { color: var(--accent); user-select: none; }
+  .code-content .cmd { color: #e2e8f0; }
+  .code-content .comment { color: var(--muted); font-style: italic; }
+  .code-content .output { color: #94a3b8; }
+  .code-content .keyword { color: var(--accent2); }
+  .code-content .string { color: var(--accent4); }
+  .code-content .branch { color: var(--accent3); }
+  .line { display: block; }
+
+  /* CALLOUT BOXES */
+  .callout {
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin: 24px 0;
+    display: flex;
+    gap: 16px;
+    border: 1px solid;
+  }
+
+  .callout.info {
+    background: rgba(96, 165, 250, 0.06);
+    border-color: rgba(96, 165, 250, 0.2);
+  }
+
+  .callout.tip {
+    background: rgba(74, 222, 128, 0.06);
+    border-color: rgba(74, 222, 128, 0.2);
+  }
+
+  .callout.warning {
+    background: rgba(250, 204, 21, 0.06);
+    border-color: rgba(250, 204, 21, 0.2);
+  }
+
+  .callout.danger {
+    background: rgba(244, 114, 182, 0.06);
+    border-color: rgba(244, 114, 182, 0.2);
+  }
+
+  .callout-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+
+  .callout-body { font-size: 15px; color: #b0bac9; }
+  .callout-body strong { display: block; margin-bottom: 4px; font-size: 14px; }
+  .callout.info .callout-body strong { color: var(--accent2); }
+  .callout.tip .callout-body strong { color: var(--accent); }
+  .callout.warning .callout-body strong { color: var(--accent4); }
+  .callout.danger .callout-body strong { color: var(--accent3); }
+
+  /* FLOW DIAGRAM */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin: 32px 0;
+    overflow-x: auto;
+    padding: 8px 0;
+  }
+
+  .flow-step {
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  .flow-node {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s;
+    cursor: default;
+    white-space: nowrap;
+  }
+
+  .flow-node:hover {
+    border-color: var(--accent);
+    background: rgba(74, 222, 128, 0.08);
+    transform: translateY(-2px);
+  }
+
+  .flow-node.current { border-color: var(--accent); color: var(--accent); }
+  .flow-node.main { border-color: var(--accent2); color: var(--accent2); }
+  .flow-node.pr { border-color: var(--accent3); color: var(--accent3); }
+
+  .flow-arrow {
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 18px;
+    padding: 0 8px;
+  }
+
+  .flow-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* BRANCH DIAGRAM */
+  .branch-diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin: 24px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    overflow-x: auto;
+  }
+
+  .bd-line { display: block; line-height: 1.9; white-space: pre; }
+  .bd-main { color: var(--accent2); }
+  .bd-feature { color: var(--accent); }
+  .bd-commit { color: #64748b; }
+  .bd-merge { color: var(--accent3); }
+  .bd-tag { color: var(--accent4); }
+
+  /* PR ANATOMY */
+  .pr-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 24px 0;
+  }
+
+  .pr-card-header {
+    background: var(--surface2);
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .pr-badge {
+    background: rgba(74, 222, 128, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .pr-title-text {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .pr-card-body {
+    padding: 20px 22px;
+  }
+
+  .pr-meta {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .pr-meta-item {
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pr-meta-label { color: var(--muted); }
+  .pr-meta-val { color: var(--text); font-weight: 600; }
+
+  .pr-desc {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 14px;
+    color: #94a3b8;
+    border: 1px solid var(--border);
+    line-height: 1.8;
+  }
+
+  .pr-checklist {
+    margin-top: 14px;
+  }
+
+  .pr-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    padding: 6px 0;
+    color: #94a3b8;
+  }
+
+  .check-icon { font-size: 16px; }
+  .check-icon.done { color: var(--accent); }
+  .check-icon.pending { color: var(--muted); }
+
+  /* GRID CARDS */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 24px 0;
+  }
+
+  @media (max-width: 600px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  .grid-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.2s;
+  }
+
+  .grid-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .grid-card h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .grid-card p {
+    font-size: 14px;
+    color: #7a8899;
+    line-height: 1.7;
+  }
+
+  /* STEP LIST */
+  .step-list { margin: 24px 0; }
+
+  .step-item {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 28px;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(74, 222, 128, 0.1);
+    border: 1.5px solid rgba(74, 222, 128, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-top: 2px;
+  }
+
+  .step-body h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .step-body p {
+    font-size: 14px;
+    color: #7a8899;
+    line-height: 1.7;
+  }
+
+  /* DIVIDER */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 60px 0;
+  }
+
+  /* INLINE CODE */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 2px 7px;
+    border-radius: 5px;
+    color: var(--accent2);
+  }
+
+  /* SUMMARY TABLE */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 24px 0;
+    font-size: 14px;
+  }
+
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  td {
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    color: #94a3b8;
+    vertical-align: top;
+  }
+
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  td:first-child {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent2);
+    font-weight: 600;
+  }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 60px 32px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ANIMATIONS */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s, transform 0.5s;
+  }
+
+  .fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<nav>
+  <div class="nav-logo">
+    <span>$</span> git-lecture
+  </div>
+  <div class="nav-chapters" id="nav-dots"></div>
+</nav>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero fade-in" id="ch0">
+    <div class="hero-tag">Git 실전 강의</div>
+    <h1>브랜치 생성부터<br><span class="highlight">PR 완료까지</span></h1>
+    <p class="hero-sub">왜 브랜치를 쓰는지, PR이 무엇인지, 팀이 함께 코드를 안전하게 합치는 방법을 처음부터 완전히 이해합니다.</p>
+    <div class="hero-meta">
+      <span><span class="dot"></span>5개 챕터</span>
+      <span><span class="dot"></span>실습 중심</span>
+      <span><span class="dot"></span>입문 → 실전</span>
+    </div>
+  </section>
+
+  <!-- CHAPTER 1: 브랜치란? -->
+  <section class="chapter fade-in" id="ch1">
+    <div class="chapter-label">Chapter 01</div>
+    <h2>브랜치(Branch)란 무엇인가?</h2>
+
+    <p class="prose">
+      브랜치는 코드의 <strong>독립된 작업 공간</strong>입니다. 원본 코드를 건드리지 않으면서 새 기능을 개발하거나 버그를 수정할 수 있는 분리된 줄기입니다.
+    </p>
+
+    <div class="callout info">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>비유로 이해하기</strong>
+        책의 원고를 복사해서 편집하는 것처럼 — 원본은 그대로 두고 복사본에서 마음껏 수정합니다. 완성되면 원본에 합치면 됩니다.
+      </div>
+    </div>
+
+    <div class="branch-diagram">
+      <span class="bd-line"><span class="bd-main">main  </span>  ●──────────────────────────────●──●  (배포용 브랜치)</span>
+      <span class="bd-line">              <span class="bd-commit">╲</span>                            <span class="bd-merge">╱</span></span>
+      <span class="bd-line"><span class="bd-feature">feature</span>         ●────●────●────●  (내 작업 브랜치)</span>
+      <span class="bd-line">                  <span class="bd-tag">c1   c2   c3   c4</span></span>
+    </div>
+
+    <p class="prose">
+      <strong>main 브랜치</strong>는 항상 배포 가능한 안정적인 코드를 유지합니다. 새로운 작업은 <strong>feature 브랜치</strong>에서 독립적으로 진행합니다.
+    </p>
+
+    <div class="grid-2">
+      <div class="grid-card">
+        <h4>🛡️ 안전성</h4>
+        <p>실험적인 변경이 main 브랜치를 망가뜨리지 않습니다. 언제든 원본으로 돌아올 수 있습니다.</p>
+      </div>
+      <div class="grid-card">
+        <h4>🤝 협업</h4>
+        <p>팀원 A는 로그인 기능, 팀원 B는 검색 기능을 동시에 따로따로 개발할 수 있습니다.</p>
+      </div>
+      <div class="grid-card">
+        <h4>📋 이력 관리</h4>
+        <p>각 기능의 작업 내역이 브랜치 단위로 명확하게 구분되어 추적이 쉽습니다.</p>
+      </div>
+      <div class="grid-card">
+        <h4>🔁 롤백</h4>
+        <p>문제가 생기면 해당 브랜치만 폐기하면 됩니다. main은 절대 영향받지 않습니다.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- CHAPTER 2: 브랜치 생성과 전환 -->
+  <section class="chapter fade-in" id="ch2">
+    <div class="chapter-label">Chapter 02</div>
+    <h2>브랜치 생성과 전환 실습</h2>
+
+    <p class="prose">
+      실제로 브랜치를 만들고 이동하는 명령어를 배웁니다. 
+      브랜치 이름은 <strong>무엇을 하는 브랜치인지 명확하게</strong> 짓는 게 중요합니다.
+    </p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-dots"><span></span><span></span><span></span></div>
+        <div class="code-title">브랜치 기본 명령어</div>
+      </div>
+      <div class="code-content">
+        <span class="line"><span class="comment"># 현재 존재하는 브랜치 목록 확인</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git branch</span></span>
+        <span class="line"><span class="output">* main</span></span>
+        <span class="line"><span class="output">  develop</span></span>
+        <br>
+        <span class="line"><span class="comment"># 새 브랜치 만들기</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git branch <span class="branch">feature/add-login</span></span></span>
+        <br>
+        <span class="line"><span class="comment"># 브랜치로 이동</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git switch <span class="branch">feature/add-login</span></span></span>
+        <span class="line"><span class="output">Switched to branch 'feature/add-login'</span></span>
+        <br>
+        <span class="line"><span class="comment"># 브랜치 만들면서 바로 이동 (위 두 명령을 한 번에 처리)</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git switch -c <span class="branch">feature/add-signup</span></span></span>
+        <span class="line"><span class="output">Switched to a new branch 'feature/add-signup'</span></span>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-icon">✅</div>
+      <div class="callout-body">
+        <strong>좋은 브랜치 네이밍 컨벤션</strong>
+        <code>feature/기능이름</code> — 새 기능 추가<br>
+        <code>fix/버그이름</code> — 버그 수정<br>
+        <code>hotfix/긴급수정</code> — 운영 중 긴급 패치<br>
+        <code>refactor/대상</code> — 코드 개선 (기능 변경 없음)
+      </div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-dots"><span></span><span></span><span></span></div>
+        <div class="code-title">브랜치에서 작업하고 커밋하기</div>
+      </div>
+      <div class="code-content">
+        <span class="line"><span class="comment"># 파일 수정 후 스테이징</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git add src/login.js</span></span>
+        <br>
+        <span class="line"><span class="comment"># 명확한 메시지로 커밋</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git commit -m <span class="string">"feat: 로그인 폼 UI 추가"</span></span></span>
+        <span class="line"><span class="output">[feature/add-login 3a1b2c0] feat: 로그인 폼 UI 추가</span></span>
+        <br>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git commit -m <span class="string">"feat: 이메일 유효성 검사 로직 추가"</span></span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git commit -m <span class="string">"feat: 로그인 API 연동 완료"</span></span></span>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <strong>커밋 메시지가 중요한 이유</strong>
+        나중에 PR을 만들 때 커밋 메시지들이 변경 이력이 됩니다. "수정", "업데이트" 같은 모호한 메시지는 리뷰어와 미래의 나를 괴롭힙니다.
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- CHAPTER 3: PR이란? -->
+  <section class="chapter fade-in" id="ch3">
+    <div class="chapter-label">Chapter 03</div>
+    <h2>PR(Pull Request)이란 무엇인가?</h2>
+
+    <p class="prose">
+      PR은 <strong>"내가 만든 브랜치를 main 브랜치에 합쳐줘"</strong>라고 팀에게 요청하는 공식 절차입니다. 단순히 코드를 합치는 게 아니라, <strong>코드 리뷰 → 토론 → 검증 → 병합</strong>의 전체 프로세스를 담은 협업 도구입니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-node">브랜치 작업</div>
+        <div class="flow-label">feature/*</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-node">Push</div>
+        <div class="flow-label">origin에 올리기</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-node pr">PR 생성</div>
+        <div class="flow-label">GitHub에서</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-node">코드 리뷰</div>
+        <div class="flow-label">팀원 검토</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-node main">Merge</div>
+        <div class="flow-label">main에 병합</div>
+      </div>
+    </div>
+
+    <p class="prose">
+      <strong>왜 이렇게 복잡한 절차를 거칠까요?</strong> 단 한 줄의 잘못된 코드가 운영 서버를 다운시킬 수 있기 때문입니다. PR은 그 코드가 main에 들어가기 전에 반드시 누군가가 확인하도록 강제하는 안전망입니다.
+    </p>
+
+    <div class="pr-card">
+      <div class="pr-card-header">
+        <div class="pr-badge">Open</div>
+        <div class="pr-title-text">[feat] 로그인 기능 추가 #42</div>
+      </div>
+      <div class="pr-card-body">
+        <div class="pr-meta">
+          <div class="pr-meta-item">
+            <span class="pr-meta-label">from</span>
+            <span class="pr-meta-val">feature/add-login</span>
+          </div>
+          <div class="pr-meta-item">
+            <span class="pr-meta-label">into</span>
+            <span class="pr-meta-val">main</span>
+          </div>
+          <div class="pr-meta-item">
+            <span class="pr-meta-label">author</span>
+            <span class="pr-meta-val">@jungmin-dev</span>
+          </div>
+          <div class="pr-meta-item">
+            <span class="pr-meta-label">commits</span>
+            <span class="pr-meta-val">3 commits</span>
+          </div>
+        </div>
+        <div class="pr-desc">
+          ## 변경 사항<br>
+          - 이메일/비밀번호 로그인 폼 UI 추가<br>
+          - 이메일 형식 유효성 검사 로직 구현<br>
+          - /api/auth/login 엔드포인트 연동<br><br>
+          ## 테스트 방법<br>
+          1. 로컬에서 npm run dev 실행<br>
+          2. /login 페이지 접속<br>
+          3. 올바른/잘못된 이메일로 각각 테스트
+        </div>
+        <div class="pr-checklist">
+          <div class="pr-check"><span class="check-icon done">✅</span> 로컬 테스트 완료</div>
+          <div class="pr-check"><span class="check-icon done">✅</span> 코드 스타일 가이드 준수</div>
+          <div class="pr-check"><span class="check-icon done">✅</span> 관련 문서 업데이트</div>
+          <div class="pr-check"><span class="check-icon pending">⬜</span> 코드 리뷰 승인 대기 중</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>PR과 MR의 차이</strong>
+        GitHub에서는 <strong>PR (Pull Request)</strong>, GitLab에서는 <strong>MR (Merge Request)</strong>라고 부릅니다. 이름만 다를 뿐 개념과 절차는 동일합니다.
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- CHAPTER 4: PR 생성과 리뷰 실습 -->
+  <section class="chapter fade-in" id="ch4">
+    <div class="chapter-label">Chapter 04</div>
+    <h2>PR 생성부터 병합까지 실습</h2>
+
+    <div class="step-list">
+
+      <div class="step-item">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>브랜치를 원격 저장소에 Push</h4>
+          <p>로컬의 브랜치를 GitHub(원격)에 올려야 PR을 만들 수 있습니다.</p>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <div class="code-title">브랜치 Push</div>
+        </div>
+        <div class="code-content">
+          <span class="line"><span class="comment"># 처음 Push할 때 (upstream 설정 포함)</span></span>
+          <span class="line"><span class="prompt">$ </span><span class="cmd">git push -u origin <span class="branch">feature/add-login</span></span></span>
+          <span class="line"><span class="output">Enumerating objects: 12, done.</span></span>
+          <span class="line"><span class="output">Branch 'feature/add-login' set up to track 'origin/feature/add-login'</span></span>
+          <br>
+          <span class="line"><span class="comment"># 이후 Push는 간단하게</span></span>
+          <span class="line"><span class="prompt">$ </span><span class="cmd">git push</span></span>
+        </div>
+      </div>
+
+      <div class="step-item">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>GitHub에서 PR 생성</h4>
+          <p>Push 후 GitHub 저장소로 이동하면 노란 배너로 PR 생성 버튼이 나타납니다. <strong>Base 브랜치(병합 대상) → Compare 브랜치(내 브랜치)</strong> 방향을 확인하세요.</p>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-icon">✅</div>
+        <div class="callout-body">
+          <strong>좋은 PR 설명 작성법</strong>
+          ① 무엇을 변경했는가 (What)<br>
+          ② 왜 변경했는가 (Why)<br>
+          ③ 어떻게 테스트하나 (How to test)<br>
+          ④ 스크린샷 (UI 변경이라면 필수)
+        </div>
+      </div>
+
+      <div class="step-item">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>코드 리뷰</h4>
+          <p>리뷰어는 변경된 파일(Files changed 탭)을 보며 코드를 검토합니다. 줄 단위로 댓글을 달 수 있고, <strong>리뷰를 마무리할 때 세 가지 결론</strong> 중 하나를 선택합니다.</p>
+        </div>
+      </div>
+
+      <p class="prose" style="font-size:14px; color:var(--muted); margin-top:-8px; margin-bottom:12px;">▼ 리뷰어가 선택하는 3가지 결론</p>
+
+      <div class="grid-2">
+        <div class="grid-card">
+          <h4 style="color: var(--accent)">✅ Approve</h4>
+          <p>코드에 문제없음. 병합해도 좋다는 승인. 보통 1~2명의 승인이 필요합니다.</p>
+        </div>
+        <div class="grid-card">
+          <h4 style="color: var(--accent3)">💬 Comment</h4>
+          <p>승인/거부 없이 의견만 남김. "이 방법도 있어요" 같은 제안.</p>
+        </div>
+        <div class="grid-card">
+          <h4 style="color: #f87171">❌ Request Changes</h4>
+          <p>수정이 필요한 부분 지적. 수정 완료 후 다시 리뷰를 요청해야 합니다.</p>
+        </div>
+      </div>
+
+      <div class="callout info" style="margin-top:20px;">
+        <div class="callout-icon">🔄</div>
+        <div class="callout-body">
+          <strong>Re-request Review — PR 작성자의 액션</strong>
+          위 3가지는 <b>리뷰어</b>가 내리는 결론이고, <b>Re-request Review</b>는 내가 리뷰어의 피드백을 반영해 수정·push한 뒤 <b>"다시 봐주세요"</b>라고 요청하는 작성자 측 기능입니다. PR 페이지의 리뷰어 이름 옆 🔄 아이콘을 클릭하면 됩니다.
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <div class="code-title">리뷰 피드백 반영 후 추가 Push</div>
+        </div>
+        <div class="code-content">
+          <span class="line"><span class="comment"># 리뷰어 지적사항 수정 후</span></span>
+          <span class="line"><span class="prompt">$ </span><span class="cmd">git add src/login.js</span></span>
+          <span class="line"><span class="prompt">$ </span><span class="cmd">git commit -m <span class="string">"fix: 리뷰 반영 - 비밀번호 최소 길이 검사 추가"</span></span></span>
+          <span class="line"><span class="prompt">$ </span><span class="cmd">git push</span></span>
+          <span class="line"><span class="comment"># → push하면 GitHub PR에 새 커밋이 자동으로 추가됩니다 (별도 작업 불필요)</span></span>
+        </div>
+      </div>
+
+      <div class="step-item">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h4>Merge (병합)</h4>
+          <p>승인을 받으면 Merge 버튼이 활성화됩니다. 세 가지 방식 중 팀 규칙에 맞는 것을 선택하세요.</p>
+        </div>
+      </div>
+
+      <table>
+        <tr>
+          <th>방식</th>
+          <th>특징</th>
+          <th>사용 상황</th>
+        </tr>
+        <tr>
+          <td>Merge Commit</td>
+          <td>모든 커밋 이력 유지, 병합 커밋 생성</td>
+          <td>히스토리를 모두 보존할 때</td>
+        </tr>
+        <tr>
+          <td>Squash & Merge</td>
+          <td>브랜치의 모든 커밋을 1개로 압축</td>
+          <td>main을 깔끔하게 유지할 때 (추천)</td>
+        </tr>
+        <tr>
+          <td>Rebase & Merge</td>
+          <td>커밋을 main 위에 재배치, 선형 히스토리</td>
+          <td>깔끔한 선형 이력이 필요할 때</td>
+        </tr>
+      </table>
+
+      <div class="step-item">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h4>브랜치 정리 (선택사항)</h4>
+          <p>Merge된 브랜치는 더 이상 필요 없습니다. GitHub에서 자동으로 삭제 버튼이 나타나며, 로컬에서도 정리합니다.</p>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <div class="code-title">Merge 후 정리</div>
+        </div>
+        <div class="code-content">
+          <span class="line"><span class="comment"># main으로 이동 후 최신 코드 받기</span></span>
+          <span class="line"><span class="prompt">$ </span><span class="cmd">git switch <span class="keyword">main</span></span></span>
+          <span class="line"><span class="prompt">$ </span><span class="cmd">git pull origin main</span></span>
+          <br>
+          <span class="line"><span class="comment"># 로컬 브랜치 삭제</span></span>
+          <span class="line"><span class="prompt">$ </span><span class="cmd">git branch -d <span class="branch">feature/add-login</span></span></span>
+          <span class="line"><span class="output">Deleted branch feature/add-login</span></span>
+          <br>
+          <span class="line"><span class="comment"># 원격 브랜치도 삭제 (GitHub 버튼 또는 명령어)</span></span>
+          <span class="line"><span class="prompt">$ </span><span class="cmd">git push origin --delete <span class="branch">feature/add-login</span></span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <!-- CHAPTER 5: 전체 흐름 요약 + 실전 팁 -->
+  <section class="chapter fade-in" id="ch5">
+    <div class="chapter-label">Chapter 05</div>
+    <h2>전체 흐름 정리 & 실전 팁</h2>
+
+    <p class="prose">
+      지금까지 배운 내용을 하나의 완전한 흐름으로 정리합니다.
+    </p>
+
+    <div class="code-block">
+      <div class="code-header">
+        <div class="code-dots"><span></span><span></span><span></span></div>
+        <div class="code-title">처음부터 끝까지 전체 명령어 흐름</div>
+      </div>
+      <div class="code-content">
+        <span class="line"><span class="comment">──────── 1. 브랜치 생성 ────────</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git switch -c <span class="branch">feature/user-profile</span></span></span>
+        <br>
+        <span class="line"><span class="comment">──────── 2. 작업 & 커밋 ────────</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git add .</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git commit -m <span class="string">"feat: 유저 프로필 페이지 추가"</span></span></span>
+        <br>
+        <span class="line"><span class="comment">──────── 3. 원격에 Push ────────</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git push -u origin <span class="branch">feature/user-profile</span></span></span>
+        <br>
+        <span class="line"><span class="comment">──────── 4. GitHub에서 PR 생성 → 리뷰 → Merge (GUI) ────────</span></span>
+        <br>
+        <span class="line"><span class="comment">──────── 5. 로컬 정리 ────────</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git switch <span class="keyword">main</span> && git pull</span></span>
+        <span class="line"><span class="prompt">$ </span><span class="cmd">git branch -d <span class="branch">feature/user-profile</span></span></span>
+      </div>
+    </div>
+
+    <p class="prose" style="margin-top: 36px;"><strong>실전에서 자주 하는 실수들</strong></p>
+
+    <div class="callout danger">
+      <div class="callout-icon">🚫</div>
+      <div class="callout-body">
+        <strong>main 브랜치에 직접 Push하지 마세요!</strong>
+        팀 프로젝트에서 main에 직접 push하는 것은 팀의 코드 리뷰 절차를 우회하는 행위입니다. 항상 브랜치를 만들고 PR을 통해 병합하세요.
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">
+        <strong>오래된 브랜치를 방치하지 마세요</strong>
+        기능 개발 중에도 <code>git pull origin main</code>을 정기적으로 실행해서 최신 main을 내 브랜치에 반영하세요. 나중에 merge conflict가 훨씬 적어집니다.<br>
+        <span style="display:block; margin-top:6px; font-size:13px; color: var(--muted);">※ feature 브랜치에 있을 때 이 명령은 원격 main을 내 브랜치에 <b>머지</b>합니다. 팀이 rebase 워크플로우를 쓴다면 <code>git fetch origin && git rebase origin/main</code>을 대신 사용하세요.</span>
+      </div>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body">
+        <strong>작은 PR이 좋은 PR입니다</strong>
+        500줄짜리 PR보다 50줄짜리 PR 10개가 훨씬 리뷰하기 쉽습니다. 기능을 작게 나눠서 자주 PR을 만드는 습관이 팀 생산성을 높입니다.
+      </div>
+    </div>
+
+    <div style="margin-top: 48px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 32px;">
+      <div class="chapter-label" style="margin-bottom: 12px;">한 줄 요약</div>
+      <p style="font-size: 22px; font-weight: 800; line-height: 1.5; letter-spacing: -0.02em;">
+        브랜치는 <span style="color: var(--accent)">안전한 작업 공간</span>이고,<br>
+        PR은 <span style="color: var(--accent3)">코드를 검증하고 합치는 공식 절차</span>입니다.
+      </p>
+      <p style="color: var(--muted); margin-top: 14px; font-size: 15px;">이 두 가지가 팀 협업의 핵심입니다. 처음엔 번거로워 보여도, 이 과정 덕분에 팀 전체의 코드가 안전하게 유지됩니다.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div style="font-size: 11px; letter-spacing: 0.1em; opacity: 0.5;">GIT LECTURE · BRANCH TO PR</div>
+</footer>
+
+<script>
+  // Progress bar
+  window.addEventListener('scroll', () => {
+    const total = document.body.scrollHeight - window.innerHeight;
+    const progress = (window.scrollY / total) * 100;
+    document.getElementById('progress-bar').style.width = progress + '%';
+  });
+
+  // Nav dots
+  const chapters = ['ch0','ch1','ch2','ch3','ch4','ch5'];
+  const dotsContainer = document.getElementById('nav-dots');
+  chapters.forEach((id, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'nav-dot';
+    dot.title = `Chapter ${i}`;
+    dot.addEventListener('click', () => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    });
+    dotsContainer.appendChild(dot);
+  });
+
+  // Active dot on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const idx = chapters.indexOf(entry.target.id);
+        document.querySelectorAll('.nav-dot').forEach((d, i) => {
+          d.classList.toggle('active', i === idx);
+        });
+      }
+    });
+  }, { threshold: 0.4 });
+
+  chapters.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) observer.observe(el);
+  });
+
+  // Fade in on scroll
+  const fadeObs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.fade-in').forEach(el => fadeObs.observe(el));
+</script>
+</body>
+</html>

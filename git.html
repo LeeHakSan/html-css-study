@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Non-fast-forward 에러 완벽 정리</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Pretendard:wght@300;400;600;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #0d0f14;
+        --surface: #161920;
+        --surface2: #1e2230;
+        --border: #2a2f40;
+        --accent: #4ade80;
+        --accent2: #60a5fa;
+        --accent3: #f472b6;
+        --accent4: #facc15;
+        --text: #e2e8f0;
+        --muted: #64748b;
+        --code-bg: #111318;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Pretendard", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.7;
+        overflow-x: hidden;
+      }
+      #progress-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        width: 0%;
+        z-index: 1000;
+        transition: width 0.1s;
+      }
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 56px;
+        background: rgba(13, 15, 20, 0.85);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 32px;
+        z-index: 100;
+      }
+      .nav-logo {
+        font-family: "JetBrains Mono", monospace;
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .nav-logo span {
+        color: var(--muted);
+      }
+      .nav-chapters {
+        display: flex;
+        gap: 6px;
+      }
+      .nav-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--border);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .nav-dot.active {
+        background: var(--accent);
+      }
+      .nav-dot:hover {
+        background: var(--accent2);
+        transform: scale(1.3);
+      }
+
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 100px 32px 80px;
+      }
+
+      .hero {
+        padding: 80px 0 60px;
+        text-align: center;
+        position: relative;
+      }
+      .hero::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 600px;
+        height: 400px;
+        background: radial-gradient(
+          ellipse at center,
+          rgba(244, 114, 182, 0.08) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .hero-tag {
+        display: inline-block;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: var(--accent3);
+        border: 1px solid rgba(244, 114, 182, 0.3);
+        background: rgba(244, 114, 182, 0.05);
+        padding: 4px 14px;
+        border-radius: 20px;
+        margin-bottom: 24px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+      .hero h1 {
+        font-size: clamp(32px, 6vw, 56px);
+        font-weight: 900;
+        line-height: 1.15;
+        letter-spacing: -0.03em;
+        margin-bottom: 20px;
+      }
+      .hero h1 .highlight {
+        background: linear-gradient(135deg, var(--accent3), var(--accent4));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .hero-sub {
+        font-size: 18px;
+        color: var(--muted);
+        max-width: 560px;
+        margin: 0 auto 40px;
+      }
+      .hero-meta {
+        display: flex;
+        justify-content: center;
+        gap: 32px;
+        font-size: 13px;
+        color: var(--muted);
+        font-family: "JetBrains Mono", monospace;
+        flex-wrap: wrap;
+      }
+      .hero-meta span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .hero-meta .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent3);
+      }
+
+      .chapter {
+        margin-top: 80px;
+        scroll-margin-top: 80px;
+      }
+      .chapter-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        margin-bottom: 10px;
+        opacity: 0.8;
+      }
+      .chapter h2 {
+        font-size: clamp(22px, 4vw, 32px);
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        margin-bottom: 24px;
+        line-height: 1.3;
+      }
+      .chapter h3 {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 28px 0 12px;
+        color: var(--text);
+      }
+
+      .prose {
+        font-size: 16px;
+        color: #b0bac9;
+        margin-bottom: 18px;
+        line-height: 1.85;
+      }
+      .prose strong {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .code-block {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin: 24px 0;
+        font-family: "JetBrains Mono", monospace;
+      }
+      .code-header {
+        background: var(--surface);
+        padding: 10px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+      }
+      .code-title {
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .code-dots {
+        display: flex;
+        gap: 5px;
+      }
+      .code-dots span {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+      .code-dots span:nth-child(1) {
+        background: #ff5f57;
+      }
+      .code-dots span:nth-child(2) {
+        background: #febc2e;
+      }
+      .code-dots span:nth-child(3) {
+        background: #28c840;
+      }
+      .code-content {
+        padding: 20px 24px;
+        font-size: 14px;
+        line-height: 2;
+        overflow-x: auto;
+      }
+      .code-content .prompt {
+        color: var(--accent);
+        user-select: none;
+      }
+      .code-content .cmd {
+        color: #e2e8f0;
+      }
+      .code-content .comment {
+        color: var(--muted);
+        font-style: italic;
+      }
+      .code-content .output {
+        color: #94a3b8;
+      }
+      .code-content .keyword {
+        color: var(--accent2);
+      }
+      .code-content .string {
+        color: var(--accent4);
+      }
+      .code-content .branch {
+        color: var(--accent3);
+      }
+      .code-content .danger {
+        color: #f87171;
+      }
+      .line {
+        display: block;
+      }
+
+      .callout {
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin: 24px 0;
+        display: flex;
+        gap: 16px;
+        border: 1px solid;
+      }
+      .callout.info {
+        background: rgba(96, 165, 250, 0.06);
+        border-color: rgba(96, 165, 250, 0.2);
+      }
+      .callout.tip {
+        background: rgba(74, 222, 128, 0.06);
+        border-color: rgba(74, 222, 128, 0.2);
+      }
+      .callout.warning {
+        background: rgba(250, 204, 21, 0.06);
+        border-color: rgba(250, 204, 21, 0.2);
+      }
+      .callout.danger {
+        background: rgba(244, 114, 182, 0.06);
+        border-color: rgba(244, 114, 182, 0.2);
+      }
+      .callout-icon {
+        font-size: 20px;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+      .callout-body {
+        font-size: 15px;
+        color: #b0bac9;
+      }
+      .callout-body strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 14px;
+      }
+      .callout.info .callout-body strong {
+        color: var(--accent2);
+      }
+      .callout.tip .callout-body strong {
+        color: var(--accent);
+      }
+      .callout.warning .callout-body strong {
+        color: var(--accent4);
+      }
+      .callout.danger .callout-body strong {
+        color: var(--accent3);
+      }
+
+      .branch-diagram {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px 28px;
+        margin: 16px 0 24px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        overflow-x: auto;
+      }
+      .bd-line {
+        display: block;
+        line-height: 1.9;
+        white-space: pre;
+      }
+      .bd-main {
+        color: var(--accent2);
+      }
+      .bd-feature {
+        color: var(--accent);
+      }
+      .bd-commit {
+        color: #94a3b8;
+      }
+      .bd-merge {
+        color: var(--accent3);
+      }
+      .bd-tag {
+        color: var(--accent4);
+      }
+      .bd-caret {
+        color: var(--accent);
+        font-weight: 700;
+      }
+      .bd-muted {
+        color: var(--muted);
+      }
+
+      .ba-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 16px 0 24px;
+      }
+      @media (max-width: 600px) {
+        .ba-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .ba-box {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+      }
+      .ba-label {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 12px;
+      }
+      .ba-box.after .ba-label {
+        color: var(--accent);
+      }
+      .ba-box.before .ba-label {
+        color: var(--accent2);
+      }
+      .ba-diagram {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        line-height: 1.9;
+        color: #94a3b8;
+      }
+      .ba-row {
+        display: flex;
+        align-items: center;
+        gap: 0;
+      }
+      .ba-row .label {
+        color: var(--muted);
+        width: 56px;
+        flex-shrink: 0;
+      }
+      .ba-row .node {
+        width: 28px;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      .ba-row .link {
+        width: 22px;
+        text-align: center;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+      .ba-row .ptr {
+        width: 28px;
+        text-align: center;
+        flex-shrink: 0;
+        color: var(--accent);
+        font-weight: 700;
+      }
+      .ba-row .ptr-label {
+        width: 28px;
+        text-align: center;
+        flex-shrink: 0;
+        color: var(--accent);
+      }
+      .ba-row .node.hi-blue {
+        color: var(--accent2);
+        font-weight: 700;
+      }
+      .ba-row .node.hi-green {
+        color: var(--accent);
+        font-weight: 700;
+      }
+
+      /* Merge diagram */
+      .merge-diagram {
+        background: var(--code-bg);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px 28px;
+        margin: 16px 0 24px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        overflow-x: auto;
+      }
+      .md-row {
+        display: flex;
+        align-items: center;
+        line-height: 1.6;
+      }
+      .md-cell {
+        width: 28px;
+        text-align: center;
+        flex-shrink: 0;
+        color: #94a3b8;
+      }
+      .md-link {
+        width: 22px;
+        text-align: center;
+        color: #64748b;
+        flex-shrink: 0;
+      }
+      .md-link.md-long {
+        width: 120px;
+      }
+      .md-main {
+        color: var(--accent2);
+        font-weight: 700;
+      }
+      .md-merge {
+        color: var(--accent3);
+        font-weight: 700;
+      }
+      .md-feature {
+        color: var(--accent);
+      }
+      .md-feature.md-cell {
+        font-weight: 700;
+      }
+      .md-slash-down {
+        color: #94a3b8;
+        font-weight: 700;
+      }
+      .md-slash-up {
+        color: var(--accent3);
+        font-weight: 700;
+      }
+      .md-note {
+        color: var(--muted);
+        margin-left: 24px;
+      }
+
+      /* Concept list inside callout */
+      .concept-list {
+        margin: 10px 0 0;
+        padding-left: 20px;
+      }
+      .concept-list li {
+        margin: 6px 0;
+        font-size: 15px;
+        color: #b0bac9;
+        line-height: 1.7;
+      }
+      .concept-list li b {
+        color: var(--accent2);
+        font-weight: 600;
+        font-size: 14px;
+        font-family: "JetBrains Mono", monospace;
+      }
+      /* Offsets for main pointer: label(56) + node(28) offsets below */
+      .ba-row .off-c {
+        width: 156px;
+        flex-shrink: 0;
+      } /* before label + A + link + B + link = 56+28+22+28+22 = 156 */
+      .ba-row .off-e {
+        width: 256px;
+        flex-shrink: 0;
+      } /* up to D+link = 56 + 4*(28+22) = 256 */
+
+      .step-list {
+        margin: 24px 0;
+      }
+      .step-item {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 24px;
+        align-items: flex-start;
+      }
+      .step-num {
+        flex-shrink: 0;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: rgba(244, 114, 182, 0.1);
+        border: 1.5px solid rgba(244, 114, 182, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--accent3);
+        margin-top: 2px;
+      }
+      .step-body h4 {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .step-body p {
+        font-size: 14px;
+        color: #7a8899;
+        line-height: 1.7;
+      }
+
+      .divider {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 60px 0;
+      }
+
+      code {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 13px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        padding: 2px 7px;
+        border-radius: 5px;
+        color: var(--accent2);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 24px 0;
+        font-size: 14px;
+      }
+      th {
+        text-align: left;
+        padding: 12px 16px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        color: var(--muted);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      td {
+        padding: 12px 16px;
+        border: 1px solid var(--border);
+        color: #94a3b8;
+        vertical-align: top;
+      }
+      tr:hover td {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      td:first-child {
+        font-family: "JetBrains Mono", monospace;
+        color: var(--accent2);
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .checklist {
+        margin: 16px 0;
+      }
+      .check-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 10px 0;
+        font-size: 15px;
+        color: #b0bac9;
+        border-bottom: 1px dashed var(--border);
+      }
+      .check-row:last-child {
+        border-bottom: none;
+      }
+      .check-box {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid var(--muted);
+        border-radius: 4px;
+        margin-top: 3px;
+      }
+
+      blockquote {
+        border-left: 3px solid var(--accent3);
+        background: rgba(244, 114, 182, 0.05);
+        padding: 14px 20px;
+        margin: 18px 0;
+        font-size: 15px;
+        color: #b0bac9;
+        border-radius: 0 8px 8px 0;
+      }
+      blockquote strong {
+        color: var(--text);
+      }
+
+      footer {
+        text-align: center;
+        padding: 60px 32px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 13px;
+        font-family: "JetBrains Mono", monospace;
+      }
+
+      .fade-in {
+        opacity: 0;
+        transform: translateY(20px);
+        transition:
+          opacity 0.5s,
+          transform 0.5s;
+      }
+      .fade-in.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="progress-bar"></div>
+
+    <nav>
+      <div class="nav-logo"><span>$</span> git-lecture</div>
+      <div class="nav-chapters" id="nav-dots"></div>
+    </nav>
+
+    <main>
+      <!-- HERO -->
+      <section class="hero fade-in" id="ch0">
+        <div class="hero-tag">Git 에러 해설</div>
+        <h1>
+          Non-fast-forward<br /><span class="highlight">에러 완벽 정리</span>
+        </h1>
+        <p class="hero-sub">
+          git push 에서 가장 자주 만나는 거절 메시지 — 왜 막히는지, 어떻게
+          풀어야 하는지, 왜 force push는 위험한지 처음부터 끝까지.
+        </p>
+        <div class="hero-meta">
+          <span><span class="dot"></span>7개 챕터</span>
+          <span><span class="dot"></span>개념 + 실습</span>
+          <span><span class="dot"></span>입문 → 실전</span>
+        </div>
+      </section>
+
+      <!-- CHAPTER 1: 에러란? -->
+      <section class="chapter fade-in" id="ch1">
+        <div class="chapter-label">Chapter 01</div>
+        <h2>Non-fast-forward 에러란?</h2>
+
+        <p class="prose">
+          <strong>git push</strong> 할 때 가장 자주 만나는 거절 메시지입니다. 한
+          줄로 말하면:
+        </p>
+
+        <blockquote>
+          <strong
+            >"내가 보내려는 커밋이 원격의 최신 상태 위에 곧바로 얹히지 못하는
+            상황"</strong
+          >
+        </blockquote>
+
+        <p class="prose">
+          원격에 내가 모르는 커밋이 있어서, 그냥 push하면 그 커밋이 사라지기
+          때문에 Git이 안전장치로 막아주는 것입니다.
+        </p>
+
+        <div class="callout info">
+          <div class="callout-icon">💡</div>
+          <div class="callout-body">
+            <strong>핵심 포인트</strong>
+            거절은 에러가 아니라 <strong>보호 장치</strong>입니다. Git은 다른
+            사람의 작업이 조용히 사라지는 걸 막기 위해 일부러 push를
+            실패시킵니다.
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- CHAPTER 2: Fast-forward 이해 -->
+      <section class="chapter fade-in" id="ch2">
+        <div class="chapter-label">Chapter 02</div>
+        <h2>Fast-forward 먼저 이해하기</h2>
+
+        <h3>Fast-forward(빨리감기)의 어원</h3>
+        <p class="prose">
+          옛날 비디오테이프의 빨리감기 버튼을 떠올리면 됩니다. 테이프를 중간에
+          끊거나 바꾸지 않고,
+          <strong>현재 위치에서 같은 선 위로만 앞으로 쭉 감는</strong>
+          동작입니다.
+        </p>
+
+        <div class="callout tip">
+          <div class="callout-icon">🎞️</div>
+          <div class="callout-body">
+            <strong>비디오테이프 비유</strong>
+            Rewind는 뒤로 감기, Fast-forward는 앞으로 감기. 핵심은
+            <strong
+              >뒤로 가거나 다른 경로로 새지 않고, 같은 선 위에서 앞으로만
+              이동</strong
+            >한다는 것.
+          </div>
+        </div>
+
+        <h3>Git에서의 Fast-forward</h3>
+        <p class="prose">
+          Git에서 브랜치는 커밋들이 한 줄로 이어진 "테이프"이고, 브랜치
+          이름(<code>main</code>, <code>feature/login</code> 등)은
+          <strong>현재 위치를 가리키는 포인터</strong>입니다.
+        </p>
+
+        <p class="prose">
+          커밋 C까지 진행된 상태에서 D, E가 같은 선 위에 추가되었다고
+          가정해봅시다. main 포인터가 C에서 E로 이동하는 과정을 Before / After로
+          보면:
+        </p>
+
+        <div class="ba-grid">
+          <div class="ba-box before">
+            <div class="ba-label">Before · 이동 전</div>
+            <div class="ba-diagram">
+              <div class="ba-row">
+                <div class="label">커밋:</div>
+                <div class="node">A</div>
+                <div class="link">──</div>
+                <div class="node">B</div>
+                <div class="link">──</div>
+                <div class="node hi-blue">C</div>
+                <div class="link">──</div>
+                <div class="node">D</div>
+                <div class="link">──</div>
+                <div class="node">E</div>
+              </div>
+              <div class="ba-row">
+                <div class="off-c"></div>
+                <div class="ptr">▲</div>
+              </div>
+              <div class="ba-row">
+                <div class="off-c"></div>
+                <div class="ptr-label">main</div>
+              </div>
+            </div>
+          </div>
+          <div class="ba-box after">
+            <div class="ba-label">After · 이동 후</div>
+            <div class="ba-diagram">
+              <div class="ba-row">
+                <div class="label">커밋:</div>
+                <div class="node">A</div>
+                <div class="link">──</div>
+                <div class="node">B</div>
+                <div class="link">──</div>
+                <div class="node">C</div>
+                <div class="link">──</div>
+                <div class="node">D</div>
+                <div class="link">──</div>
+                <div class="node hi-green">E</div>
+              </div>
+              <div class="ba-row">
+                <div class="off-e"></div>
+                <div class="ptr">▲</div>
+              </div>
+              <div class="ba-row">
+                <div class="off-e"></div>
+                <div class="ptr-label">main</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="prose">
+          main을 C에서 E로 옮기는 건
+          <strong
+            >새로운 경로를 만드는 게 아니라, 이미 있는 선 위에서 포인터만 앞으로
+            미는 것</strong
+          >입니다. 이게 fast-forward입니다.
+        </p>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- CHAPTER 3: Non-fast-forward가 발생하는 상황 -->
+      <section class="chapter fade-in" id="ch3">
+        <div class="chapter-label">Chapter 03</div>
+        <h2>Non-fast-forward가 발생하는 상황</h2>
+
+        <p class="prose">
+          다음과 같은 상황을 봅시다. 팀원이 먼저 X를 push한 사이, 내가 로컬에서
+          C, D 커밋을 만들었습니다.
+        </p>
+
+        <div class="branch-diagram">
+          <span class="bd-line"
+            ><span class="bd-muted">원격 main:</span>
+            <span class="bd-main">A ── B ── X</span>
+            <span class="bd-muted">(팀원이 X를 먼저 push)</span></span
+          >
+          <span class="bd-line"
+            ><span class="bd-muted">내 로컬: </span>
+            <span class="bd-feature">A ── B ── C ── D</span>
+            <span class="bd-muted">(내가 C, D를 만드는 동안)</span></span
+          >
+        </div>
+
+        <p class="prose">
+          내 로컬은 B에서 분기해서 C, D를 만들었는데, 그 사이 팀원이 X를 원격에
+          먼저 올렸습니다. 이제 원격에는 <strong>내가 모르는 커밋 X</strong>가
+          있는 상태입니다.
+        </p>
+
+        <p class="prose">이 상태에서 <strong>git push</strong>를 하면:</p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><span></span><span></span><span></span></div>
+            <div class="code-title">terminal — push 거절 메시지</div>
+          </div>
+          <div class="code-content">
+            <span class="line"
+              ><span class="prompt">$ </span
+              ><span class="cmd">git push</span></span
+            >
+            <span class="line"
+              ><span class="danger"
+                >! [rejected] main -> main (non-fast-forward)</span
+              ></span
+            >
+            <span class="line"
+              ><span class="danger"
+                >error: failed to push some refs to '...'</span
+              ></span
+            >
+            <span class="line"
+              ><span class="output"
+                >hint: Updates were rejected because the remote contains
+                work</span
+              ></span
+            >
+            <span class="line"
+              ><span class="output"> that you do not have locally.</span></span
+            >
+          </div>
+        </div>
+
+        <div class="callout warning">
+          <div class="callout-icon">🛑</div>
+          <div class="callout-body">
+            <strong>왜 거절할까?</strong>
+            그냥 내 커밋(C, D)으로 밀어버리면
+            <strong>팀원의 X 커밋이 사라지기 때문</strong>입니다. Git이 "잠깐,
+            너 원격에 새로 생긴 거 모르지?" 하고 막아주는 것.
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- CHAPTER 4: 해결 순서 -->
+      <section class="chapter fade-in" id="ch4">
+        <div class="chapter-label">Chapter 04</div>
+        <h2>올바른 해결 순서</h2>
+
+        <p class="prose">
+          원격의 새 커밋을 받아와서 내 로컬에 합친 뒤, 다시 push하면 됩니다.
+        </p>
+
+        <div class="step-list">
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <h4>원격의 변경사항 받아오기</h4>
+              <p>
+                git pull 은 내부적으로 fetch + merge 를 수행합니다. 원격의 X가
+                내 로컬 히스토리에 합쳐집니다.
+              </p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <h4>충돌이 있으면 해결</h4>
+              <p>
+                두 쪽이 같은 파일을 건드렸다면 충돌 마커를 열어서 수동으로
+                정리한 뒤 add, commit 합니다.
+              </p>
+            </div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <h4>다시 push</h4>
+              <p>
+                이제 내 로컬 tip이 원격 tip 위에 있으므로 fast-forward가
+                가능해져서 push가 성공합니다.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><span></span><span></span><span></span></div>
+            <div class="code-title">terminal — 정석 해결 흐름</div>
+          </div>
+          <div class="code-content">
+            <span class="line"
+              ><span class="prompt">$ </span
+              ><span class="cmd">git pull origin main</span>
+              <span class="comment"
+                ># 원격의 X를 받아와서 내 로컬에 병합</span
+              ></span
+            >
+            <span class="line"
+              ><span class="comment"> # → 자동 병합 커밋 생기거나,</span></span
+            >
+            <span class="line"
+              ><span class="comment"> # 충돌 나면 해결 후 commit</span></span
+            >
+            <br />
+            <span class="line"
+              ><span class="prompt">$ </span><span class="cmd">git push</span>
+              <span class="comment"># 이제 fast-forward 가능 → 성공</span></span
+            >
+          </div>
+        </div>
+
+        <h3>병합 후 히스토리</h3>
+        <div class="merge-diagram">
+          <div class="md-row md-top">
+            <div class="md-cell">A</div>
+            <div class="md-link">──</div>
+            <div class="md-cell md-main">B</div>
+            <div class="md-link">──</div>
+            <div class="md-cell md-main">X</div>
+            <div class="md-link md-long">─────────</div>
+            <div class="md-cell md-merge">M</div>
+            <div class="md-note">(M은 병합 커밋)</div>
+          </div>
+          <div class="md-row md-mid">
+            <div class="md-cell"></div>
+            <div class="md-link"></div>
+            <div class="md-cell md-slash-down">╲</div>
+            <div class="md-link"></div>
+            <div class="md-cell"></div>
+            <div class="md-link md-long"></div>
+            <div class="md-cell md-slash-up">╱</div>
+          </div>
+          <div class="md-row md-bot">
+            <div class="md-cell"></div>
+            <div class="md-link"></div>
+            <div class="md-cell"></div>
+            <div class="md-link"></div>
+            <div class="md-cell md-feature">C</div>
+            <div class="md-link md-long md-feature">─────────</div>
+            <div class="md-cell md-feature">D</div>
+          </div>
+        </div>
+
+        <div class="callout info">
+          <div class="callout-icon">🔀</div>
+          <div class="callout-body">
+            <strong>rebase 대안</strong>
+            히스토리를 일직선으로 유지하고 싶다면
+            <code>git pull --rebase</code> 또는
+            <code>git rebase origin/main</code> 으로 내 커밋을 원격 tip 위로
+            옮겨 붙일 수 있습니다. 단, 이 경우 push 할 때
+            <code>--force-with-lease</code>가 필요합니다.
+          </div>
+        </div>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- CHAPTER 5: force push 경고 -->
+      <section class="chapter fade-in" id="ch5">
+        <div class="chapter-label">Chapter 05</div>
+        <h2>절대 하지 말아야 할 것: push --force</h2>
+
+        <p class="prose">
+          <strong>--force</strong> 옵션은
+          <strong>"원격의 X를 무시하고 내 C, D로 덮어써!"</strong> 라는
+          뜻입니다. push는 성공하지만 대가가 큽니다.
+        </p>
+
+        <div class="callout danger">
+          <div class="callout-icon">☠️</div>
+          <div class="callout-body">
+            <strong>force push가 남기는 흔적</strong>
+            팀원의 X 커밋이 <strong>영구 소실</strong>됩니다. 팀원은 다음 pull
+            때 "내 커밋 어디 갔지?" 하며 혼란에 빠지고, 팀에서 신뢰를 잃는
+            지름길입니다.
+          </div>
+        </div>
+
+        <h3>안전한 대안: --force-with-lease</h3>
+        <p class="prose">
+          강제로 덮어써야만 하는 상황(예: 내 브랜치에서 rebase 후 push)이라면
+          <strong>--force-with-lease</strong>를 씁니다.
+        </p>
+
+        <div class="code-block">
+          <div class="code-header">
+            <div class="code-dots"><span></span><span></span><span></span></div>
+            <div class="code-title">terminal — 조건부 강제 push</div>
+          </div>
+          <div class="code-content">
+            <span class="line"
+              ><span class="prompt">$ </span
+              ><span class="cmd"
+                >git push <span class="keyword">--force-with-lease</span></span
+              ></span
+            >
+          </div>
+        </div>
+
+        <blockquote>
+          <strong>"내가 마지막으로 본 원격 상태가 그대로일 때만 force"</strong>
+          라는 조건부 강제 push. 내가 fetch한 이후 누군가 원격에 새 커밋을
+          올렸다면 거절됩니다.
+        </blockquote>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- CHAPTER 6: 비유 -->
+      <section class="chapter fade-in" id="ch6">
+        <div class="chapter-label">Chapter 06</div>
+        <h2>비유로 정리</h2>
+
+        <table>
+          <thead>
+            <tr>
+              <th>상황</th>
+              <th>비유</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Fast-forward</td>
+              <td>같은 도로 위에서 액셀을 밟는 것 (한 방향 직진)</td>
+            </tr>
+            <tr>
+              <td>Non-fast-forward</td>
+              <td>갈림길에서 다른 길로 점프하는 것 (불가능 — 먼저 합류부터)</td>
+            </tr>
+            <tr>
+              <td>git pull</td>
+              <td>갈라진 두 길을 다시 하나로 합치는 합류 공사</td>
+            </tr>
+            <tr>
+              <td>git push --force</td>
+              <td>표지판을 몰래 바꿔서 팀원 길을 지워버리기 (금지!)</td>
+            </tr>
+            <tr>
+              <td>--force-with-lease</td>
+              <td>"내가 본 이후 바뀐 거 없지?" 확인하고 덮어쓰기 (조건부)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <blockquote>
+          <strong>한 줄 요약</strong><br />
+          <strong>Fast-forward</strong> = 브랜치 포인터를 이미 존재하는 일직선
+          경로 위에서 앞으로 이동시키는 가장 단순·안전한 업데이트.<br /><br />
+          <strong>Non-fast-forward</strong> = 그게 불가능한 상황(원격에 내가
+          모르는 커밋이 있음). pull 먼저, 그다음 push.
+        </blockquote>
+      </section>
+
+      <hr class="divider" />
+
+      <!-- CHAPTER 7: 체크리스트 -->
+      <section class="chapter fade-in" id="ch7">
+        <div class="chapter-label">Chapter 07</div>
+        <h2>체크리스트 — 에러 만났을 때</h2>
+
+        <div class="checklist">
+          <div class="check-row">
+            <div class="check-box"></div>
+            <div><strong>git fetch</strong> 로 원격 상태 먼저 확인</div>
+          </div>
+          <div class="check-row">
+            <div class="check-box"></div>
+            <div>
+              <strong>git pull origin &lt;브랜치&gt;</strong> 로 원격 커밋
+              받아오기
+            </div>
+          </div>
+          <div class="check-row">
+            <div class="check-box"></div>
+            <div>
+              충돌 나면 충돌 마커(<code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>,
+              <code>=======</code>, <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code>)
+              정리 후 git add, git commit
+            </div>
+          </div>
+          <div class="check-row">
+            <div class="check-box"></div>
+            <div>다시 <strong>git push</strong></div>
+          </div>
+          <div class="check-row">
+            <div class="check-box"></div>
+            <div>
+              <strong>절대 --force 옵션 먼저 쓰지 않기</strong> (공유 브랜치라면
+              더더욱)
+            </div>
+          </div>
+        </div>
+
+        <h3>관련 개념</h3>
+        <div class="callout info">
+          <div class="callout-icon">📌</div>
+          <div class="callout-body">
+            <strong>함께 알아두면 좋은 것</strong>
+            <ul class="concept-list">
+              <li><b>git pull</b> = <b>git fetch</b> + <b>git merge</b></li>
+              <li>
+                <b>git rebase</b> — 내 커밋을 원격 tip 위로 옮겨 붙여 히스토리를
+                일직선으로 만드는 대안 (push 시 force-with-lease 필요)
+              </li>
+              <li>
+                <b>Protected branch</b> — GitHub에서 main 같은 중요 브랜치는
+                force push 자체를 막아두는 것이 실무 표준
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div>$ git lecture · Non-fast-forward 에러 완벽 정리</div>
+    </footer>
+
+    <script>
+      // Progress bar
+      window.addEventListener("scroll", () => {
+        const h = document.documentElement;
+        const p = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+        document.getElementById("progress-bar").style.width = p + "%";
+      });
+
+      // Nav dots
+      const chapters = document.querySelectorAll(".chapter, .hero");
+      const navDots = document.getElementById("nav-dots");
+      chapters.forEach((ch, i) => {
+        const dot = document.createElement("div");
+        dot.className = "nav-dot";
+        dot.title = ch.querySelector("h1, h2")?.innerText || "";
+        dot.addEventListener("click", () =>
+          ch.scrollIntoView({ behavior: "smooth" }),
+        );
+        navDots.appendChild(dot);
+      });
+
+      // Fade-in on scroll
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) e.target.classList.add("visible");
+          });
+        },
+        { threshold: 0.1 },
+      );
+      document
+        .querySelectorAll(".fade-in")
+        .forEach((el) => observer.observe(el));
+
+      // Active dot
+      const sections = document.querySelectorAll(".chapter, .hero");
+      window.addEventListener("scroll", () => {
+        const dots = document.querySelectorAll(".nav-dot");
+        let activeIdx = 0;
+        sections.forEach((s, i) => {
+          const r = s.getBoundingClientRect();
+          if (r.top < window.innerHeight / 2) activeIdx = i;
+        });
+        dots.forEach((d, i) => d.classList.toggle("active", i === activeIdx));
+      });
+    </script>
+  </body>
+</html>

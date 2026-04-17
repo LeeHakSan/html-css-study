@@ -1,0 +1,143 @@
+/* 공통 리셋 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.content-wrapper {
+  flex: 1;
+  border: color 1px solid red;
+}
+
+/* 1. 완전 가운데 정렬 */
+.demo-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  background-color: #eef2ff;
+  margin-bottom: 20px;
+}
+
+.box {
+  background-color: blue;
+  color: white;
+  padding: 20px 40px;
+  border-radius: 8px;
+}
+
+/* logo 네비게이션 바 */
+.demo-nav {
+  display: flex; /*마음대로 정렬*/
+  justify-content: space-between; /*가운데 비우기*/
+  align-items: center; /*상하 중앙정렬*/
+  background-color: rgb(45, 49, 97);
+  height: 60px;
+  padding: 0 20px;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.demo-nav a {
+  text-decoration: none; /* 밑줄 삭제 */
+  color: rgb(129, 129, 129);
+  margin-left: 20px; /* 왼쪽 공백 넣기 */
+}
+
+/* 3. card-grid */
+.demo-grid {
+  display: flex; /* div는 박스 속성 이기 때문에 옆으로 붙이기 위한 코드*/
+  flex-wrap: wrap; /* 사이즈가 줄어들면 내려감, nowrap - 사이즈가 줄어도 안 내려감 */
+  gap: 20px; /*맨 왼,오른쪽은 공백 안 먹음*/
+  background-color: #bbbbbb;
+  margin-bottom: 20px; /* 클래스의 젤 밑 공백을 띄워주기 위함 */
+  padding: 30px;
+}
+.card {
+  /* 
+  grow(정해둔 픽셀보다 커지면 자동으로 늘림) 
+  shrink(비율에 맞게 사이즈를 줄임) 
+  flex-basis (자신의 기본 크기 설정)*/
+  flex: 1 1 200px;
+
+  text-align: center;
+  padding: 30px; /*카드 공간을 늘림*/
+  background-color: white; /*카드 공간 배경색 적용*/
+  border-radius: 8px;
+
+  /* x축, y축, 그림자 길이, 그림자 색*/
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 4. sidebar */
+.demo-sidebar-layout {
+  display: flex;
+  min-height: 200px;
+  margin-bottom: 20px;
+}
+
+.sidebar {
+  width: 200px;
+  background-color: rgb(129, 129, 129);
+  color: white;
+  padding: 20px;
+}
+
+.main {
+  flex: 1;
+  background-color: rgb(151, 170, 187);
+  padding: 20px;
+  color: white;
+}
+
+.demo-hero {
+  height: 300px;
+  background: url("https://picsum.photos/seed/hero/1200/300");
+  color: white;
+  font-size: 20px;
+
+  /* 글자 가운데 정렬 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+  margin-bottom: 20px;
+}
+
+.demo-responsive {
+  display: flex;
+  /* background-color: #dbeaff; */
+  padding: 30px;
+  gap: 20px;
+}
+
+.col {
+  flex: 1;
+  background-color: #eef2ff;
+  padding: 30px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.demo-footer {
+  padding: 20px;
+  background-color: black;
+  text-align: center;
+  color: rgb(199, 194, 189);
+}
+
+@media (max-width: 768px) {
+  .demo-responsive {
+    flex-direction: column;
+  }
+}
