@@ -12,7 +12,7 @@ a {
   text-decoration: none;
   margin: 6px;
   background-color: #ff6f0f;
-  color: rgb(253, 243, 229);
+  color: rgb(255, 255, 255);
   padding: 10px 10px;
   border-radius: 10px;
 }
@@ -21,9 +21,50 @@ header {
   position: fixed;
   top: 0;
   width: 100%;
+  background-color: rgba(255, 221, 221, 0.5);
+
+  backdrop-filter: blur(10px);
 }
 nav {
   display: flex;
-
+  align-items: center;
   justify-content: space-between;
+  margin-right: 5%;
+}
+
+nav h3 {
+  margin-left: 5%;
+}
+
+main {
+  padding-top: 300px;
+}
+
+main h2 {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 40px;
+}
+
+.search-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 5% 20%;
+}
+
+.type {
+  border-top: 1px solid #dcdee3;
+  border-bottom: 1px solid #dcdee3;
+  border-left: 1px solid #dcdee3;
+  padding: 12px 24px;
+  border-top-left-radius: 30px;
+  border-bottom-left-radius: 30px;
+}
+
+.search-bar input {
+  border-top: 1px solid #dcdee3;
+  border-bottom: 1px solid #dcdee3;
+  padding: 12px 24px;
 }
