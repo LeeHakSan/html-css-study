@@ -49,22 +49,22 @@ main h2 {
 
 .search-bar {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  margin: 5% 20%;
+  margin: 20px 33%;
+  border: 1px solid #dcdee3;
+  border-radius: 30px;
 }
 
 .type {
-  border-top: 1px solid #dcdee3;
-  border-bottom: 1px solid #dcdee3;
-  border-left: 1px solid #dcdee3;
-  padding: 12px 24px;
-  border-top-left-radius: 30px;
-  border-bottom-left-radius: 30px;
 }
 
 .search-bar input {
-  border-top: 1px solid #dcdee3;
-  border-bottom: 1px solid #dcdee3;
-  padding: 12px 24px;
+}
+
+.arrow {
+  border: 40px 40px;
+  background-color: black;
+  color: white;
+  font-size: 16px;
 }
